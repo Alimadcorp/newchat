@@ -108,14 +108,26 @@ el.innerHTML="["+bits.join(" • ")+"]"
 function updateAll(){
 document.querySelectorAll(".meta").forEach(updateOne)
 }
+function groupLogs(logs) {
+const grouped = {};
+logs.forEach(it => {
+const time = new Date(it.time);
+const hourKey = time.getFullYear() + '-' + (time.getMonth()+1) + '-' + time.getDate() + '-' + time.getHours();
+const key = (it.ip||'') + '|' + hourKey;
+if(!grouped[key]) grouped[key] = { ...it, text: it.text||'' };
+else grouped[key].text += '\n' + (it.text||'');
+});
+return Object.values(grouped);
+}
 async function pull(){
 try{
-const r=await fetch('https://log.alimad.co/api/pull?pwd=PASSWORDISBANANA&channel='+encodeURIComponent('chat:'+user),{cache:'no-store'})
-if(!r.ok)return
-const j=await r.json()
-const logs=j.logs??j.data??j
-if(Array.isArray(logs)) logs.forEach(render)
-else if(logs) Object.values(logs).forEach(render)
+const r = await fetch('https://log.alimad.co/api/pull?pwd=PASSWORDISBANANA&channel='+encodeURIComponent('chat:'+user), {cache:'no-store'});
+if(!r.ok) return;
+const j = await r.json();
+let logs = j.logs ?? j.data ?? j;
+if(!Array.isArray(logs)) logs = Object.values(logs);
+const mergedLogs = groupLogs(logs);
+mergedLogs.forEach(render);
 }catch{}
 }
 async function sendMsg(text){
