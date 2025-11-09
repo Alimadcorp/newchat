@@ -1,3 +1,55 @@
+<style>
+@font-face{
+font-family:GM;
+src:url("https://corsproxy.io/?url=https://cdn.alimad.co/f/GeistMono.woff2") format("woff2");
+}
+html,body{
+height:100%;margin:0;padding:0;overflow:hidden;
+background:#000;color:#0f0;
+font-family:GM,monospace;
+}
+*{
+scrollbar-width: thin;
+scrollbar-color: #0f0 transparent;
+}
+#app{
+display:flex;flex-direction:column;
+height:100vh;padding:6px;gap:6px;
+}
+#bar{
+display:flex;gap:6px;
+}
+#feed{ flex:1;overflow:auto;padding:6px; border:1px solid #003300; background:linear-gradient(#001000,#000); font-size:14px; }
+.msg{
+padding:4px 6px;margin:4px 0;
+word-break:break-word;
+max-width:90%;
+}
+.me{margin-left:auto;color:#0f0;}
+.other{color:#6f6;}
+.meta{
+font-size:10px;
+opacity:.6;
+margin-bottom:2px;
+}
+textarea,button{
+background:#000;color:#0f0;
+border:1px solid #003300;
+padding:8px;font:inherit;
+border-radius:0;
+}
+textarea{flex:1;resize:none;height:42px;}
+button{cursor:pointer;white-space:nowrap;}
+button:hover{border-color:#0f0;}
+img.emoji{width:1em;height:1em;vertical-align:text-bottom;}
+</style>
+<div id=app>
+<div id=bar>
+<textarea id=txt placeholder="> enter…"></textarea>
+<button id=send>send</button>
+</div>
+<div id=feed></div>
+</div>
 <script>
 const qp=new URLSearchParams(location.search)
 let user=qp.get("channel")
