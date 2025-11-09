@@ -1,1 +1,139 @@
-<style>#a,#b{display:flex;gap:6px}#a,#f{padding:6px}body,button,html,textarea{background:#000;color:#0f0}#f,button,textarea{border:1px solid #030}@font-face{font-family:GM;src:url("https://corsproxy.io/?url=https://cdn.alimad.co/f/GeistMono.woff2") format("woff2")}body,html{height:100%;margin:0;padding:0;overflow:hidden;font-family:GM,monospace}#a{flex-direction:column;height:100vh}#f{flex:1;overflow-y:auto;overflow-x:hidden;background:linear-gradient(#001000,#000);font-size:14px}.msg{padding:4px 6px;margin:4px 0;word-break:break-word;max-width:90%}.me{margin-left:auto;color:#0f0}.other{color:#6f6}.meta{font-size:10px;opacity:.6;margin-bottom:2px}button,textarea{padding:8px;font:inherit;border-radius:0}textarea{flex:1;resize:none;height:42px}button{cursor:pointer;white-space:nowrap}button:hover{border-color:#0f0}</style><div id=a><div id=b><textarea id=c placeholder="> enter…"></textarea><button id=i>i</button></div><div id=f></div></div><script>const qp=new URLSearchParams(location.search);let user=qp.get("channel");user||(user=prompt("channel (username)")||"guest"+Math.random().toString(36).slice(2)),user=user.trim();const f=document.getElementById("f"),c=document.getElementById("c"),i=document.getElementById("i");let seen=new Set,polling=5e3;const safe=e=>String(e).replace(/[&<>]/g,e=>({"&":"&amp;","<":"&lt;",">":"&gt;"})[e]);function timeAgo(e){if(!e)return"";let t=new Date(e),n=(Date.now()-t.getTime())/1e3;return isNaN(n)?"":n<10?"just now":n<60?Math.floor(n)+"s ago":(n/=60)<60?Math.floor(n)+"m ago":(n/=60)<24?Math.floor(n)+"h ago":Math.floor(n/24)+"d ago"}function render(e){let t="",n="",l="",s="";"string"==typeof e?n=e:e&&"object"==typeof e?(n=e.text??e.msg??e.message??JSON.stringify(e),t=e.user??e.from??e.name??"",s=e.ip??"",l=e.time??""):n=String(e);let a=t+n+l+s;if(seen.has(a))return;seen.add(a);let r=document.createElement("div");r.className="msg "+(t===user?"me":"other");let o=timeAgo(l),u=[];t&&u.push(safe(t)),s&&u.push(safe(s)),o&&u.push(o);let g=u.length?"<span class=meta>["+u.join(" • ")+"]</span><br>":"";r.innerHTML=g+safe(n),f.appendChild(r),f.scrollTop=f.scrollHeight}async function pull(){try{let e="channel="+encodeURIComponent("chat:"+user),t=await fetch("https://log.alimad.co/api/pull?pwd=PASSWORDISBANANA&"+e,{cache:"no-store"});if(!t.ok)return;let n=await t.json(),l=n?.logs??n?.data??n;Array.isArray(l)?l.forEach(render):l&&"object"==typeof l&&Object.values(l).forEach(render)}catch{}}async function sendMsg(e){if(!e.trim())return;let t="channel="+encodeURIComponent("chat:"+user)+"&text="+encodeURIComponent(e);try{await fetch("https://log.alimad.co/api/log?"+t),c.value="",pull()}catch{}}i.onclick=()=>sendMsg(c.value),c.addEventListener("keydown",e=>{"Enter"!==e.key||e.shiftKey||(e.preventDefault(),sendMsg(c.value))}),pull(),setInterval(pull,polling)</script>
+<style>
+@font-face{
+font-family:GM;
+src:url("https://corsproxy.io/?url=https://cdn.alimad.co/f/GeistMono.woff2") format("woff2");
+}
+html,body{
+height:100%;margin:0;padding:0;overflow:hidden;
+background:#000;color:#0f0;
+font-family:GM,monospace;
+}
+*{
+scrollbar-width: thin;
+scrollbar-color: #0f0 transparent;
+}
+#app{
+display:flex;flex-direction:column;
+height:100vh;padding:6px;gap:6px;
+}
+#bar{
+display:flex;gap:6px;
+}
+#feed{ flex:1;overflow:auto;padding:6px; border:1px solid #003300; background:linear-gradient(#001000,#000); font-size:14px; }
+.msg{
+padding:4px 6px;margin:4px 0;
+word-break:break-word;
+max-width:90%;
+}
+.me{margin-left:auto;color:#0f0;}
+.other{color:#6f6;}
+.meta{
+font-size:10px;
+opacity:.6;
+margin-bottom:2px;
+}
+textarea,button{
+background:#000;color:#0f0;
+border:1px solid #003300;
+padding:8px;font:inherit;
+border-radius:0;
+}
+textarea{flex:1;resize:none;height:42px;}
+button{cursor:pointer;white-space:nowrap;}
+button:hover{border-color:#0f0;}
+img.emoji{width:1em;height:1em;vertical-align:text-bottom;}
+</style>
+<div id=app>
+<div id=bar>
+<textarea id=txt placeholder="> enter…"></textarea>
+<button id=send>send</button>
+</div>
+<div id=feed></div>
+</div>
+<script>
+const qp=new URLSearchParams(location.search)
+let user=qp.get("channel")
+if(!user) user=prompt("channel (username)")||("guest"+Math.random().toString(36).slice(2))
+user=user.trim()
+const feed=document.getElementById('feed'),txt=document.getElementById('txt'),send=document.getElementById('send')
+let seen=new Set(),polling=3000
+const safe=s=>String(s).replace(/[&<>]/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[ch]))
+function emojiify(text){
+return text.replace(/:([0-9a-zA-Z-_]+):/g,(m,name)=>`<img class="emoji" src="https://e.alimad.co/${name.replace(/^rofl$/i, "loll")}">`)
+}
+function timeAgo(t){
+if(!t) return ""
+let s=(Date.now()-new Date(t).getTime())/1000
+if(isNaN(s))return ""
+if(s<10)return "just now"
+if(s<60)return Math.floor(s)+"s ago"
+s/=60;if(s<60)return Math.floor(s)+"m ago"
+s/=60;if(s<24)return Math.floor(s)+"h ago"
+return Math.floor(s/24)+"d ago"
+}
+function render(it){
+let who="",body="",time="",ip=""
+if(it&&typeof it==="object"){
+body=it.text??JSON.stringify(it)
+who=it.user??""
+ip=it.ip??""
+time=it.time??""
+} else body=String(it)
+const id=who+body+time+ip
+if(seen.has(id))return
+seen.add(id)
+const meta=document.createElement("span")
+meta.className="meta"
+meta.dataset.time=time
+meta.dataset.user=who
+meta.dataset.ip=ip
+const msg=document.createElement("div")
+msg.className="msg "+(who===user?"me":"other")
+msg.appendChild(meta)
+msg.insertAdjacentHTML("beforeend","<br>"+emojiify(safe(body)))
+feed.appendChild(msg)
+updateOne(meta)
+feed.scrollTop=feed.scrollHeight
+}
+function updateOne(el){
+const u=el.dataset.user||""
+const ip=el.dataset.ip||""
+const ta=timeAgo(el.dataset.time)
+const bits=[]
+if(u)bits.push(safe(u))
+if(ip)bits.push(safe(ip))
+if(ta)bits.push(ta)
+el.innerHTML="["+bits.join(" • ")+"]"
+}
+function updateAll(){
+document.querySelectorAll(".meta").forEach(updateOne)
+}
+async function pull(){
+try{
+const r=await fetch('https://log.alimad.co/api/pull?pwd=PASSWORDISBANANA&channel='+encodeURIComponent('chat:'+user),{cache:'no-store'})
+if(!r.ok)return
+const j=await r.json()
+const logs=j.logs??j.data??j
+if(Array.isArray(logs)) logs.forEach(render)
+else if(logs) Object.values(logs).forEach(render)
+}catch{}
+}
+async function sendMsg(text){
+if(!text.trim())return
+try{
+await fetch('https://log.alimad.co/api/log?channel='+encodeURIComponent('chat:'+user)+'&text='+encodeURIComponent(text))
+txt.value=""
+pull()
+}catch{}
+}
+send.onclick=()=>sendMsg(txt.value)
+txt.addEventListener("keydown",e=>{
+if(e.key==="Enter"&&!e.shiftKey){
+e.preventDefault()
+sendMsg(txt.value)
+}
+})
+pull()
+setInterval(pull,polling)
+setInterval(updateAll,5000)
+</script>
