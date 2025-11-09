@@ -71,29 +71,73 @@ s/=60;if(s<60)return Math.floor(s)+"m ago"
 s/=60;if(s<24)return Math.floor(s)+"h ago"
 return Math.floor(s/24)+"d ago"
 }
+function groupLogs(logs) {
+const grouped = {};
+logs.forEach(it => {
+const time = new Date(it.time);
+const hourKey = time.getFullYear() + '-' + (time.getMonth()+1) + '-' + time.getDate() + '-' + time.getHours();
+const key = (it.ip||'') + '|' + hourKey;
+
+if(!grouped[key]) {
+grouped[key] = {
+...it,
+texts: [it.text||''],
+times: [time]
+};
+} else {
+grouped[key].texts.push(it.text||'');
+grouped[key].times.push(time);
+}
+});
+
+return Object.values(grouped).map(g => {
+const times = g.times.sort((a,b)=>a-b);
+g.text = g.texts.join('\n');
+g.timeRange = times.length > 1
+? `${times[0].toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}–${times[times.length-1].toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}`
+: times[0].toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+return g;
+});
+}
+
 function render(it){
 let who="",body="",time="",ip=""
-if(it&&typeof it==="object"){
-body=it.text??JSON.stringify(it)
-who=it.user??""
-ip=it.ip??""
-time=it.time??""
-} else body=String(it)
-const id=who+body+time+ip
-if(seen.has(id))return
-seen.add(id)
-const meta=document.createElement("span")
-meta.className="meta"
-meta.dataset.time=time
-meta.dataset.user=who
-meta.dataset.ip=ip
-const msg=document.createElement("div")
-msg.className="msg "+(who===user?"me":"other")
-msg.appendChild(meta)
-msg.insertAdjacentHTML("beforeend","<br>"+emojiify(safe(body)))
-feed.appendChild(msg)
-updateOne(meta)
-feed.scrollTop=feed.scrollHeight
+if(it && typeof it === "object"){
+body=it.text??"";
+who=it.user??"";
+ip=it.ip??"";
+time=it.timeRange??it.time??"";
+} else body=String(it);
+
+const id=who+body+time+ip;
+if(seen.has(id)) return;
+seen.add(id);
+
+const meta=document.createElement("span");
+meta.className="meta";
+meta.dataset.time=time;
+meta.dataset.user=who;
+meta.dataset.ip=ip;
+
+const msg=document.createElement("div");
+msg.className="msg "+(who===user?"me":"other");
+msg.appendChild(meta);
+msg.insertAdjacentHTML("beforeend","<br>"+emojiify(safe(body).replace(/\n/g,'<br>')));
+feed.appendChild(msg);
+updateOne(meta);
+feed.scrollTop=feed.scrollHeight;
+}
+
+async function pull(){
+try{
+const r = await fetch('https://log.alimad.co/api/pull?pwd=PASSWORDISBANANA&channel='+encodeURIComponent('chat:'+user), {cache:'no-store'});
+if(!r.ok) return;
+const j = await r.json();
+let logs = j.logs ?? j.data ?? j;
+if(!Array.isArray(logs)) logs = Object.values(logs);
+const mergedLogs = groupLogs(logs);
+mergedLogs.forEach(render);
+}catch{}
 }
 function updateOne(el){
 const u=el.dataset.user||""
@@ -107,28 +151,6 @@ el.innerHTML="["+bits.join(" • ")+"]"
 }
 function updateAll(){
 document.querySelectorAll(".meta").forEach(updateOne)
-}
-function groupLogs(logs) {
-const grouped = {};
-logs.forEach(it => {
-const time = new Date(it.time);
-const hourKey = time.getFullYear() + '-' + (time.getMonth()+1) + '-' + time.getDate() + '-' + time.getHours();
-const key = (it.ip||'') + '|' + hourKey;
-if(!grouped[key]) grouped[key] = { ...it, text: it.text||'' };
-else grouped[key].text += '\n' + (it.text||'');
-});
-return Object.values(grouped);
-}
-async function pull(){
-try{
-const r = await fetch('https://log.alimad.co/api/pull?pwd=PASSWORDISBANANA&channel='+encodeURIComponent('chat:'+user), {cache:'no-store'});
-if(!r.ok) return;
-const j = await r.json();
-let logs = j.logs ?? j.data ?? j;
-if(!Array.isArray(logs)) logs = Object.values(logs);
-const mergedLogs = groupLogs(logs);
-mergedLogs.forEach(render);
-}catch{}
 }
 async function sendMsg(text){
 if(!text.trim())return
