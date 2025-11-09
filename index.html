@@ -55,113 +55,84 @@ const qp=new URLSearchParams(location.search)
 let user=qp.get("channel")
 if(!user) user=prompt("channel (username)")||("guest"+Math.random().toString(36).slice(2))
 user=user.trim()
-
 const feed=document.getElementById('feed'),txt=document.getElementById('txt'),send=document.getElementById('send')
-let seen=new Map(),polling=3000
-
+let seen=new Set(),polling=3000
 const safe=s=>String(s).replace(/[&<>]/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[ch]))
-
 function emojiify(text){
-  return text.replace(/:([0-9a-zA-Z-_]+):/g,(m,name)=>`<img class="emoji" src="https://e.alimad.co/${name}">`)
+return text.replace(/:([0-9a-zA-Z-_]+):/g,(m,name)=>`<img class="emoji" src="https://e.alimad.co/${name.replace(/^rofl$/i, "loll")}">`)
 }
-
 function timeAgo(t){
-  if(!t) return ""
-  let s=(Date.now()-new Date(t).getTime())/1000
-  if(isNaN(s))return ""
-  if(s<10)return "just now"
-  if(s<60)return Math.floor(s)+"s ago"
-  s/=60;if(s<60)return Math.floor(s)+"m ago"
-  s/=60;if(s<24)return Math.floor(s)+"h ago"
-  return Math.floor(s/24)+"d ago"
+if(!t) return ""
+let s=(Date.now()-new Date(t).getTime())/1000
+if(isNaN(s))return ""
+if(s<10)return "just now"
+if(s<60)return Math.floor(s)+"s ago"
+s/=60;if(s<60)return Math.floor(s)+"m ago"
+s/=60;if(s<24)return Math.floor(s)+"h ago"
+return Math.floor(s/24)+"d ago"
 }
-
 function render(it){
-  let who="",body="",time="",ip=""
-  if(it && typeof it==="object"){
-    body=it.text??JSON.stringify(it)
-    who=it.user??""
-    ip=it.ip??""
-    time=it.time??""
-  } else body=String(it)
-
-  // key by ip + hour
-  const hour = new Date(time).getHours()
-  const key = ip + "|" + hour
-  const existing = seen.get(key)
-
-  if(existing){
-    // merge messages
-    existing.body.push(body)
-    existing.time = time
-    existing.msgEl.lastChild.innerHTML = emojiify(safe(existing.body.join("\n")))
-    updateOne(existing.metaEl)
-    feed.scrollTop = feed.scrollHeight
-    return
-  }
-
-  const meta=document.createElement("span")
-  meta.className="meta"
-  meta.dataset.time=time
-  meta.dataset.user=who
-  meta.dataset.ip=ip
-
-  const msg=document.createElement("div")
-  msg.className="msg "+(who===user?"me":"other")
-  msg.appendChild(meta)
-  const bodyDiv = document.createElement("div")
-  bodyDiv.innerHTML = emojiify(safe(body))
-  msg.appendChild(bodyDiv)
-
-  feed.appendChild(msg)
-  seen.set(key,{body:[body],time:time,msgEl:msg,metaEl:meta})
-  updateOne(meta)
-  feed.scrollTop = feed.scrollHeight
+let who="",body="",time="",ip=""
+if(it&&typeof it==="object"){
+body=it.text??JSON.stringify(it)
+who=it.user??""
+ip=it.ip??""
+time=it.time??""
+} else body=String(it)
+const id=who+body+time+ip
+if(seen.has(id))return
+seen.add(id)
+const meta=document.createElement("span")
+meta.className="meta"
+meta.dataset.time=time
+meta.dataset.user=who
+meta.dataset.ip=ip
+const msg=document.createElement("div")
+msg.className="msg "+(who===user?"me":"other")
+msg.appendChild(meta)
+msg.insertAdjacentHTML("beforeend","<br>"+emojiify(safe(body)))
+feed.appendChild(msg)
+updateOne(meta)
+feed.scrollTop=feed.scrollHeight
 }
-
 function updateOne(el){
-  const u=el.dataset.user||""
-  const ip=el.dataset.ip||""
-  const ta=timeAgo(el.dataset.time)
-  const bits=[]
-  if(u) bits.push(safe(u))
-  if(ip) bits.push(safe(ip))
-  if(ta) bits.push(ta)
-  el.innerHTML="["+bits.join(" • ")+"]"
+const u=el.dataset.user||""
+const ip=el.dataset.ip||""
+const ta=timeAgo(el.dataset.time)
+const bits=[]
+if(u)bits.push(safe(u))
+if(ip)bits.push(safe(ip))
+if(ta)bits.push(ta)
+el.innerHTML="["+bits.join(" • ")+"]"
 }
-
 function updateAll(){
-  document.querySelectorAll(".meta").forEach(updateOne)
+document.querySelectorAll(".meta").forEach(updateOne)
 }
-
 async function pull(){
-  try{
-    const r=await fetch('https://log.alimad.co/api/pull?pwd=PASSWORDISBANANA&channel='+encodeURIComponent('chat:'+user),{cache:'no-store'})
-    if(!r.ok)return
-    const j=await r.json()
-    const logs=j.logs??j.data??j
-    if(Array.isArray(logs)) logs.forEach(render)
-    else if(logs) Object.values(logs).forEach(render)
-  }catch{}
+try{
+const r=await fetch('https://log.alimad.co/api/pull?pwd=PASSWORDISBANANA&channel='+encodeURIComponent('chat:'+user),{cache:'no-store'})
+if(!r.ok)return
+const j=await r.json()
+const logs=j.logs??j.data??j
+if(Array.isArray(logs)) logs.forEach(render)
+else if(logs) Object.values(logs).forEach(render)
+}catch{}
 }
-
 async function sendMsg(text){
-  if(!text.trim())return
-  try{
-    await fetch('https://log.alimad.co/api/log?channel='+encodeURIComponent('chat:'+user)+'&text='+encodeURIComponent(text))
-    txt.value=""
-    pull()
-  }catch{}
+if(!text.trim())return
+try{
+await fetch('https://log.alimad.co/api/log?channel='+encodeURIComponent('chat:'+user)+'&text='+encodeURIComponent(text))
+txt.value=""
+pull()
+}catch{}
 }
-
 send.onclick=()=>sendMsg(txt.value)
 txt.addEventListener("keydown",e=>{
-  if(e.key==="Enter"&&!e.shiftKey){
-    e.preventDefault()
-    sendMsg(txt.value)
-  }
+if(e.key==="Enter"&&!e.shiftKey){
+e.preventDefault()
+sendMsg(txt.value)
+}
 })
-
 pull()
 setInterval(pull,polling)
 setInterval(updateAll,5000)
