@@ -144,6 +144,16 @@ if (!user)
 user =
 prompt("channel (username)") ||
 "guest" + Math.random().toString(36).slice(2);
+window.addEventListener("beforeunload", () => {
+const url = "https://live.alimad.co/leave?channel=" + encodeURIComponent("chat:" + user);
+if (navigator.sendBeacon) {
+navigator.sendBeacon(url);
+} else {
+const xhr = new XMLHttpRequest();
+xhr.open("GET", url, false);
+try { xhr.send(); } catch(e) {}
+}
+});
 const g = (e) => { return document.getElementById(e); };
 user = user.trim();
 g("channelname").textContent = user;
