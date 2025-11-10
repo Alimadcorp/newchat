@@ -1,302 +1,408 @@
 <style>
-  @font-face {
-    font-family: GM;
-    src: url("https://corsproxy.io/?url=https://cdn.alimad.co/f/GeistMono.woff2")
-      format("woff2");
-  }
-  html,
-  body {
-    height: 100%;
-    margin: 0;
-    padding: 0;
-    overflow: hidden;
-    background: #000;
-    color: #0f0;
-    font-family: GM, monospace;
-  }
-  * {
-    scrollbar-width: thin;
-    scrollbar-color: #0f0 transparent;
-  }
-  #app {
-    display: flex;
-    flex-direction: column;
-    height: 100vh;
-    padding: 6px;
-    gap: 6px;
-  }
-  #bar {
-    display: flex;
-    gap: 6px;
-  }
-  #feed {
-    flex: 1;
-    overflow: auto;
-    padding: 6px;
-    border: 1px solid #003300;
-    background: linear-gradient(#001000, #000);
-    font-size: 14px;
-  }
-  .msg {
-    padding: 4px 6px;
-    margin: 4px 0;
-    word-break: break-word;
-    max-width: 90%;
-  }
-  .me {
-    color: #0f0;
-  }
-  .other {
-    color: #6f6;
-  }
-  .meta {
-    font-size: 10px;
-    opacity: 0.6;
-    margin-bottom: 2px;
-  }
-  textarea,
-  button {
-    background: #000;
-    color: #0f0;
-    border: 1px solid #003300;
-    padding: 8px;
-    font: inherit;
-    border-radius: 0;
-  }
-  textarea {
-    flex: 1;
-    resize: none;
-    height: 42px;
-  }
-  button {
-    cursor: pointer;
-    white-space: nowrap;
-  }
-  button:hover {
-    border-color: #0f0;
-  }
-  img.emoji {
-    width: 1em;
-    height: 1em;
-    vertical-align: text-bottom;
-  }
-  .msg.read {
-    font-size: small;
-    color: #0a0;
-    font-style: italic;
-    opacity: 0.7;
-  }
+@font-face {
+font-family: GM;
+font-weight: light, normal, bold, bolder;
+src: url("https://corsproxy.io/?url=https://cdn.alimad.co/f/GeistMono.woff2")
+format("woff2");
+}
+html,
+body {
+height: 100%;
+margin: 0;
+padding: 0;
+overflow: hidden;
+background: #000;
+color: #0f0;
+font-family: GM, monospace;
+}
+* {
+scrollbar-width: thin;
+scrollbar-color: #0f0 transparent;
+}
+#app {
+display: flex;
+flex-direction: column;
+height: 100vh;
+padding: 6px;
+gap: 6px;
+}
+#bar {
+display: flex;
+gap: 6px;
+}
+textarea,
+button {
+background: #000;
+color: #0f0;
+border: 1px solid #003300;
+padding: 8px;
+font: inherit;
+border-radius: 0;
+}
+textarea {
+flex: 1;
+resize: none;
+height: 42px;
+outline: 0 solid #0000;
+transition: outline 0.2s;
+max-height: 50vh;
+}
+textarea:focus {
+outline: 2px solid #0f0;
+}
+#feed {
+flex: 1;
+overflow: auto;
+padding: 6px;
+border: 1px solid #003300;
+background: linear-gradient(#001000, #000);
+font-size: 14px;
+}
+.msg {
+padding: 4px 6px;
+margin: 4px 0;
+word-break: break-word;
+max-width: 90%;
+}
+.me {
+color: #0f0;
+}
+.other {
+color: #6f6;
+}
+.meta {
+font-size: 10px;
+opacity: 0.6;
+margin-bottom: 2px;
+}
+button {
+cursor: pointer;
+white-space: nowrap;
+}
+button:hover {
+border-color: #0f0;
+}
+img.emoji {
+width: 1em;
+height: 1em;
+vertical-align: text-bottom;
+}
+img.msgi {
+width:80vw;
+max-width: 400px;
+display:block;
+margin:4px 0;
+}
+.msg.read {
+font-size: small;
+color: #0a0;
+font-style: italic;
+opacity: 0.7;
+}
+a {
+color: #0f0;
+text-decoration: underline;
+text-decoration-color: #4f44;
+cursor: pointer;
+}
+a:hover {
+color: #4f4;
+text-decoration: underline;
+}
+@media(max-width: 500px) {
+.dek {
+display: none;
+}
+}
 </style>
 <div id="app">
-  <div id="bar">
-    <textarea id="txt" placeholder="> enter…"></textarea>
-    <button id="send">send</button>
-  </div>
-  <div id="viewer-count" style="color: #0f0; font-size: 12px; opacity: 0.6">
-    Online: …
-  </div>
-  <div id="feed"></div>
+<div id="bar">
+<textarea id="txt" placeholder="> Enter..."></textarea>
+<button id="send">Send</button>
+</div>
+<div style="color: #0f0; font-size: 12px; opacity: 0.6">
+<span>Online: <a href="#" onclick="updateViewerCount()"><strong id="viewer-count">...</strong></a> • </a></span>
+<a href="#" onclick="pull()"><span id="poller">Loading...</span></a>
+<span class="dek">
+<span> • <strong id="tiem">Parsing...</strong></span>
+<span> • <span id="daet">Reading...</span></span>
+</span>
+<span> • <a id="upload" href="#" onclick="upload()" style="font-weight: bold;">Upload Image</a></span>
+<span class="dek" style="float: right"
+>Channel: <strong id="channelname"></strong
+></span>
+</div>
+<div id="feed"></div>
+<input type="file" id="imgUpload" style="display:none" accept="image/*">
 </div>
 <script>
-  const qp = new URLSearchParams(location.search);
-  let user = qp.get("channel"),
-    w,
-    mc = 0,
-    lastRendered = 0;
-  if (!user)
-    user =
-      prompt("channel (username)") ||
-      "guest" + Math.random().toString(36).slice(2);
-  user = user.trim();
-  const feed = document.getElementById("feed"),
-    txt = document.getElementById("txt"),
-    send = document.getElementById("send");
-  let seen = new Set(),
-    polling = 10000;
-  const safe = (s) =>
-    String(s).replace(
-      /[&<>]/g,
-      (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[ch])
-    );
-  function emojiify(text) {
-    return text.replace(
-      /:([0-9a-zA-Z-_]+):/g,
-      (m, name) =>
-        `<img class="emoji" src="https://e.alimad.co/${name.replace(
-          /^rofl$/i,
-          "loll"
-        )}">`
-    );
-  }
-  function timeAgo(t) {
-    if (!t) return "";
-    let s = (Date.now() - new Date(t).getTime()) / 1000;
-    if (isNaN(s)) return "";
-    if (s < 10) return "just now";
-    if (s < 60) return Math.floor(s) + "s ago";
-    s /= 60;
-    if (s < 60) return Math.floor(s) + "m ago";
-    s /= 60;
-    if (s < 24) return Math.floor(s) + "h ago";
-    return Math.floor(s / 24) + "d ago";
-  }
-  function render(it) {
-    let body = "",
-      time = "",
-      ip = "",
-      isRead = false,
-      me = false;
-    if (it && typeof it === "object") {
-      body = it.text ?? JSON.stringify(it);
-      ip = it.ip ?? "";
-      me = w.includes(ip);
-      time = it.time ?? "";
-      isRead = it.status === "read";
-      if (isRead && me) return;
-    } else body = String(it);
-    const id = body + time + ip;
-    if (seen.has(id)) return;
-    seen.add(id);
-    const msg = document.createElement("div");
-    if (isRead) {
-      msg.className = "msg read";
-      msg.textContent = "-- Read " + timeAgo(time) + " --";
-      feed.appendChild(msg);
-      feed.scrollTop = feed.scrollHeight;
-      return;
-    }
-    msg.className = "msg " + (me ? "me" : "other");
-    const meta = document.createElement("span");
-    meta.className = "meta";
-    meta.dataset.time = time;
-    meta.dataset.user = me ? "you" : "";
-    meta.dataset.ip = ip;
-    msg.appendChild(meta);
-    msg.insertAdjacentHTML(
-      "beforeend",
-      "<br>" + emojiify(safe(body)).replace(/\n/g, "<br>")
-    );
-    feed.appendChild(msg);
-    updateOne(meta);
-    feed.scrollTop = feed.scrollHeight;
-  }
-  function updateOne(el) {
-    const u = el.dataset.user || "";
-    const ip = el.dataset.ip || "";
-    const ta = timeAgo(el.dataset.time);
-    const bits = [];
-    if (u) bits.push(safe(u));
-    if (ip) bits.push(safe(ip));
-    if (ta) bits.push(ta);
-    el.innerHTML = "[" + bits.join(" • ") + "]";
-  }
-  function updateAll() {
-    document.querySelectorAll(".meta").forEach(updateOne);
-  }
-  async function pull() {
-    try {
-      const r = await fetch(
-        "https://log.alimad.co/api/pull?pwd=PASSWORDISBANANA&channel=" +
-          encodeURIComponent("chat:" + user),
-        { cache: "no-store" }
-      );
-      if (!r.ok) return;
-      const j = await r.json();
-      let logs = j.logs ?? j.data ?? j;
-      if (!Array.isArray(logs)) logs = Object.values(logs);
-      if (!logs.length) return;
-      let merged = [];
-      let prev = logs[0];
-      for (let k = 1; k < logs.length; k++) {
-        const cur = logs[k];
-        const sameIP = prev.ip === cur.ip;
-        const sameStatus = prev.status === cur.status;
-        const closeTime =
-          Math.abs(new Date(prev.time) - new Date(cur.time)) < 300000;
-        if (sameIP && sameStatus && closeTime) {
-          prev.text += "\n" + cur.text;
-        } else {
-          merged.push(prev);
-          prev = cur;
-        }
-      }
-      merged.push(prev);
-      feed.innerHTML = "";
-      seen.clear();
-      merged.forEach(render);
-      if (
-        mc < logs.filter((l) => l.status != "read").length &&
-        !w.includes(
-          logs[logs.length - 1].ip && logs[logs.length - 1].status != "read"
-        )
-      )
-        read();
-      mc = logs.filter((l) => l.status != "read").length;
-    } catch {}
-  }
-  async function read() {
-    if (localStorage.getItem("chat:" + user + ":lastRead")) {
-      const lastRead = parseInt(
-        localStorage.getItem("chat:" + user + ":lastRead")
-      );
-      if (Date.now() - lastRead < 60000) {
-        return;
-      }
-    }
-    await fetch(
-      "https://log.alimad.co/api/log?channel=" +
-        encodeURIComponent("chat:" + user) +
-        "&text=read&status=read"
-    );
-    localStorage.setItem("chat:" + user + ":lastRead", Date.now().toString());
-  }
-  async function sendMsg(text) {
-    if (!text.trim()) return;
-    try {
-      await fetch(
-        "https://log.alimad.co/api/log?channel=" +
-          encodeURIComponent("chat:" + user) +
-          "&text=" +
-          encodeURIComponent(text)
-      );
-      txt.value = "";
-      pull();
-    } catch {}
-  }
-  send.onclick = () => sendMsg(txt.value);
-  txt.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      sendMsg(txt.value);
-    }
-  });
-  function initiate() {
-    pull();
-    updateViewerCount();
-    setInterval(pull, polling);
-    setInterval(updateAll, 5000);
-    setInterval(updateViewerCount, 5000);
-  }
-  async function updateViewerCount() {
-    try {
-      const r = await fetch(
-        "https://live.alimad.co/ping?app=" + encodeURIComponent("chat:" + user)
-      );
-      if (!r.ok) return;
-      const j = await r.text();
-      const count = parseInt(j) || 0;
-      document.getElementById("viewer-count").textContent = "Online: " + count;
-    } catch (e) {}
-  }
-  document.addEventListener("DOMContentLoaded", async () => {
-    w = localStorage.getItem("myip");
-    w = JSON.parse(w || "[]");
-    fetch("https://api.ipify.org")
-      .then((r) => r.text())
-      .then((data) => {
-        if (!w.includes(data)) w.push(data);
-        localStorage.setItem("myip", JSON.stringify(w));
-        initiate();
-      });
-  });
+const qp = new URLSearchParams(location.search);
+let user = qp.get("channel"),
+w,
+mc = 0;
+if (!user)
+user =
+prompt("channel (username)") ||
+"guest" + Math.random().toString(36).slice(2);
+const g = (e) => { return document.getElementById(e); };
+user = user.trim();
+g("channelname").textContent = user;
+const feed = g("feed"),
+txt = g("txt"),
+send = g("send");
+let seen = new Set(),
+polling = 10000;
+let cp = false;
+setInterval(() => {
+const tiem = g("tiem");
+const now = new Date();
+tiem.textContent = now.toLocaleTimeString();
+const daet = g("daet");
+daet.textContent = now.toLocaleDateString();
+}, 1000);
+const safe = (s) =>
+String(s).replace(
+/[&<>]/g,
+(ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[ch])
+);
+function emojiify(text) {
+return text.replace(
+/:([0-9a-zA-Z-_]+):/g,
+(m, name) =>
+`<img class="emoji" src="https://e.alimad.co/${name.replace(
+/^rofl$/i,
+"loll"
+)}">`
+);
+}
+function timeAgo(t) {
+if (!t) return "";
+let s = (Date.now() - new Date(t).getTime()) / 1000;
+if (isNaN(s)) return "";
+if (s < 10) return "just now";
+if (s < 60) return Math.floor(s) + "s ago";
+s /= 60;
+if (s < 60) return Math.floor(s) + "m ago";
+s /= 60;
+if (s < 24) return Math.floor(s) + "h ago";
+return Math.floor(s / 24) + "d ago";
+}
+function render(it, neww) {
+let body = "", time = "", ip = "", isRead = false, me = false;
+
+if (it && typeof it === "object") {
+body = it.text ?? JSON.stringify(it);
+ip = it.ip ?? "";
+me = w.includes(ip);
+time = it.time ?? "";
+isRead = it.status === "read";
+if (isRead && me) return;
+} else body = String(it);
+
+const id = body + time + ip;
+if (seen.has(id)) return;
+seen.add(id);
+
+const msg = document.createElement("div");
+if (isRead) {
+msg.className = "msg read";
+msg.textContent = "-- Read " + timeAgo(time) + " --";
+feed.appendChild(msg);
+return;
+}
+
+msg.className = "msg " + (me ? "me" : "other");
+const meta = document.createElement("span");
+meta.className = "meta";
+meta.dataset.time = time;
+meta.dataset.user = me ? "you" : "";
+meta.dataset.ip = ip;
+msg.appendChild(meta);
+console.log(safe(body));
+let formatted = safe(body)
+.replace(/&lt;(https?:\/\/\S+)&gt;/gi, (_, url) => `<img class="msgi" src="${url}">`);
+
+if (formatted === safe(body)) {
+formatted = safe(body).replace(/(https?:\/\/\S+)/gi, url => `<a href="${url}" target="_blank">${url}</a>`);
+}
+
+msg.insertAdjacentHTML("beforeend", "<br>" + emojiify(formatted).replace(/\n/g, "<br>"));
+feed.appendChild(msg);
+updateOne(meta);
+
+if (neww) {
+setTimeout(() => {
+feed.scrollTo({ top: feed.scrollHeight, behavior: "smooth" });
+}, 10);
+}
+}
+
+function updateOne(el) {
+const u = el.dataset.user || "";
+const ip = el.dataset.ip || "";
+const ta = timeAgo(el.dataset.time);
+const bits = [];
+if (u) bits.push(safe(u));
+if (ip) bits.push(safe(ip));
+if (ta) bits.push(ta);
+el.innerHTML = "[" + bits.join(" • ") + "]";
+}
+function updateAll() {
+document.querySelectorAll(".meta").forEach(updateOne);
+}
+async function pull() {
+if (cp) return;
+cp = true;
+g("poller").textContent = "Refreshing...";
+try {
+const r = await fetch(
+"https://log.alimad.co/api/pull?pwd=PASSWORDISBANANA&channel=" +
+encodeURIComponent("chat:" + user),
+{ cache: "no-store" }
+);
+if (!r.ok) return;
+const j = await r.json();
+let logs = j.logs ?? j.data ?? j;
+if (!Array.isArray(logs)) logs = Object.values(logs);
+if (!logs.length) return;
+let merged = [];
+let prev = logs[0];
+for (let k = 1; k < logs.length; k++) {
+const cur = logs[k];
+const sameIP = prev.ip === cur.ip;
+const sameStatus = prev.status === cur.status;
+const closeTime =
+Math.abs(new Date(prev.time) - new Date(cur.time)) < 300000;
+if (sameIP && sameStatus && closeTime) {
+prev.text += "\n" + cur.text;
+} else {
+merged.push(prev);
+prev = cur;
+}
+}
+merged.push(prev);
+feed.innerHTML = "";
+seen.clear();
+for(let i = 0; i < merged.length; i++){
+render(merged[i], mc < logs.filter((l) => l.status != "read").length);
+}
+if (
+mc < logs.filter((l) => l.status != "read").length &&
+!w.includes(
+logs[logs.length - 1].ip && logs[logs.length - 1].status != "read"
+)
+)
+read();
+mc = logs.filter((l) => l.status != "read").length;
+cp = false;
+g("poller").textContent = "Refreshed just now";
+} catch {
+cp = false;
+g("poller").textContent = "Refresh failed";
+}
+}
+async function read() {
+if (localStorage.getItem("chat:" + user + ":lastRead")) {
+const lastRead = parseInt(
+localStorage.getItem("chat:" + user + ":lastRead")
+);
+if (Date.now() - lastRead < 60000) {
+return;
+}
+}
+await fetch(
+"https://log.alimad.co/api/log?channel=" +
+encodeURIComponent("chat:" + user) +
+"&text=read&status=read"
+);
+localStorage.setItem("chat:" + user + ":lastRead", Date.now().toString());
+}
+async function sendMsg(text) {
+if (!text.trim()) return;
+try {
+await fetch(
+"https://log.alimad.co/api/log?channel=" +
+encodeURIComponent("chat:" + user) +
+"&text=" +
+encodeURIComponent(text)
+);
+txt.value = "";
+pull();
+} catch {}
+}
+send.onclick = () => sendMsg(txt.value);
+txt.addEventListener("keydown", (e) => {
+if (e.key === "Enter" && !e.shiftKey) {
+e.preventDefault();
+sendMsg(txt.value);
+}
+});
+function initiate() {
+pull();
+updateViewerCount();
+setInterval(pull, polling);
+setInterval(updateAll, 5000);
+setInterval(updateViewerCount, 5000);
+}
+let uv = false;
+async function updateViewerCount() {
+if(uv) return;
+uv = true;
+try {
+g("viewer-count").style.color = "#9f9";
+const r = await fetch(
+"https://live.alimad.co/ping?app=" + encodeURIComponent("chat:" + user)
+);
+if (!r.ok) return;
+const j = await r.text();
+const count = parseInt(j) || 0;
+g("viewer-count").textContent = count;
+g("viewer-count").style.color = "#0f0";
+} catch (e) {}
+uv = false;
+}
+document.addEventListener("DOMContentLoaded", async () => {
+w = localStorage.getItem("myip");
+w = JSON.parse(w || "[]");
+fetch("https://api.ipify.org")
+.then((r) => r.text())
+.then((data) => {
+if (!w.includes(data)) w.push(data);
+localStorage.setItem("myip", JSON.stringify(w));
+initiate();
+});
+});
+const tt = g("txt");
+tt.addEventListener("input", () => {
+tt.style.height = "42px";
+tt.style.height = (tt.scrollHeight + 2) + "px";
+});
+async function upload() {
+const fileInput = document.getElementById("imgUpload");
+fileInput.click();
+fileInput.onchange = async () => {
+const file = fileInput.files[0];
+if (!file) return;
+g("upload").textContent = "Uploading...";
+
+const form = new FormData();
+form.append("image", file);
+
+try {
+const res = await fetch("https://api.imgbb.com/1/upload?key=0035f29ef2ddb2862584cd5114e4a7ee", {
+method: "POST",
+body: form
+});
+const data = await res.json();
+if (data.success) {
+const url = data.data.url;
+txt.value += `<${url}>`;
+}
+g("upload").textContent = "Upload Image";
+} catch (e) {
+alert("Upload failed: " + e.message);
+g("upload").textContent = "Upload Failed";
+}
+};
+}
 </script>
