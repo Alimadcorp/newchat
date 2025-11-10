@@ -415,3 +415,16 @@ await upload(true, blob);
 }
 });
 </script>
+<script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+<script>
+window.OneSignalDeferred = window.OneSignalDeferred || [];
+OneSignalDeferred.push(async function(OneSignal) {
+await OneSignal.init({
+appId: "b885061e-346e-4289-b31f-f082b0704cbb",
+safari_web_id: "web.onesignal.auto.67fef31a-7360-4fd8-9645-1463ac233cef",
+notifyButton: {
+enable: true,
+},
+});
+});
+</script>
