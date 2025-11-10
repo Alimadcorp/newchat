@@ -189,7 +189,6 @@ return Math.floor(s / 24) + "d ago";
 }
 function render(it, neww) {
 let body = "", time = "", ip = "", isRead = false, me = false;
-
 if (it && typeof it === "object") {
 body = it.text ?? JSON.stringify(it);
 ip = it.ip ?? "";
@@ -198,11 +197,9 @@ time = it.time ?? "";
 isRead = it.status === "read";
 if (isRead && me) return;
 } else body = String(it);
-
 const id = body + time + ip;
 if (seen.has(id)) return;
 seen.add(id);
-
 const msg = document.createElement("div");
 if (isRead) {
 msg.className = "msg read";
@@ -210,7 +207,6 @@ msg.textContent = "-- Read " + timeAgo(time) + " --";
 feed.appendChild(msg);
 return;
 }
-
 msg.className = "msg " + (me ? "me" : "other");
 const meta = document.createElement("span");
 meta.className = "meta";
@@ -218,25 +214,20 @@ meta.dataset.time = time;
 meta.dataset.user = me ? "you" : "";
 meta.dataset.ip = ip;
 msg.appendChild(meta);
-console.log(safe(body));
 let formatted = safe(body)
 .replace(/&lt;(https?:\/\/\S+)&gt;/gi, (_, url) => `<img class="msgi" src="${url}">`);
-
 if (formatted === safe(body)) {
 formatted = safe(body).replace(/(https?:\/\/\S+)/gi, url => `<a href="${url}" target="_blank">${url}</a>`);
 }
-
 msg.insertAdjacentHTML("beforeend", "<br>" + emojiify(formatted).replace(/\n/g, "<br>"));
 feed.appendChild(msg);
 updateOne(meta);
-
 if (neww) {
 setTimeout(() => {
 feed.scrollTo({ top: feed.scrollHeight, behavior: "smooth" });
 }, 10);
 }
 }
-
 function updateOne(el) {
 const u = el.dataset.user || "";
 const ip = el.dataset.ip || "";
@@ -377,22 +368,19 @@ tt.addEventListener("input", () => {
 tt.style.height = "42px";
 tt.style.height = (tt.scrollHeight + 2) + "px";
 });
-async function upload() {
+async function upload(fromPaste = false, pasteFile = null) {
 const fileInput = document.getElementById("imgUpload");
-fileInput.click();
-fileInput.onchange = async () => {
+const up = async () => {
 const file = fileInput.files[0];
 if (!file) return;
 g("upload").textContent = "Uploading...";
-
 const form = new FormData();
 form.append("image", file);
-
 try {
-const res = await fetch("https://api.imgbb.com/1/upload?key=0035f29ef2ddb2862584cd5114e4a7ee", {
-method: "POST",
-body: form
-});
+const res = await fetch(
+"https://api.imgbb.com/1/upload?key=0035f29ef2ddb2862584cd5114e4a7ee",
+{ method: "POST", body: form }
+);
 const data = await res.json();
 if (data.success) {
 const url = data.data.url;
@@ -404,5 +392,26 @@ alert("Upload failed: " + e.message);
 g("upload").textContent = "Upload Failed";
 }
 };
+if (!fromPaste) {
+fileInput.click();
+} else if (pasteFile) {
+const dt = new DataTransfer();
+dt.items.add(pasteFile);
+fileInput.files = dt.files;
+up();
 }
+fileInput.onchange = up;
+}
+txt.addEventListener("paste", async (e) => {
+const items = e.clipboardData?.items;
+if (!items) return;
+for (const item of items) {
+if (item.type.startsWith("image/")) {
+e.preventDefault();
+const blob = item.getAsFile();
+if (!blob) return;
+await upload(true, blob);
+}
+}
+});
 </script>
