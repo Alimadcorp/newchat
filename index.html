@@ -12,7 +12,7 @@ format("woff2");
 }
 html,
 body {
-height: 100%;
+height: calc(var(--vh) * 100);
 margin: 0;
 padding: 0;
 overflow: hidden;
@@ -27,7 +27,7 @@ scrollbar-color: #0f0 transparent;
 #app {
 display: flex;
 flex-direction: column;
-height: 100vh;
+height: calc(var(--vh) * 100);
 padding: 6px;
 gap: 6px;
 }
@@ -118,7 +118,6 @@ text-decoration: underline;
 .dek {
 display: none;
 }
-#app { height: 90vh } 
 }
 </style>
 <div id="app">
@@ -443,4 +442,9 @@ enable: true,
 },
 });
 });
+function updateVH() {
+document.documentElement.style.setProperty('--vh', window.innerHeight * 0.01 + 'px');
+}
+updateVH();
+window.addEventListener('resize', updateVH);
 </script>
