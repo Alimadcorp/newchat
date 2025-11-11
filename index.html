@@ -379,10 +379,12 @@ initiate();
 });
 });
 const tt = g("txt");
-tt.addEventListener("input", () => {
+const scaleI = () => {
 tt.style.height = "42px";
 tt.style.height = (tt.scrollHeight + 2) + "px";
-});
+}
+tt.addEventListener("input", scaleI);
+setInterval(scaleI, 500);
 async function upload(fromPaste = false, pasteFile = null) {
 const fileInput = document.getElementById("imgUpload");
 const up = async () => {
