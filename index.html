@@ -125,14 +125,25 @@ display: none;
 <textarea id="txt" placeholder="> Enter..."></textarea>
 <button id="send">Send</button>
 </div>
-<div style="color: #0f0; font-size: 12px; opacity: 0.6">
-<span>Online: <a href="#" onclick="updateViewerCount()"><strong id="viewer-count">...</strong></a> • </a></span>
+<div style="color: #0f0; font-size: 12px; opacity: 1">
+<span id="otherUserDot" style="
+display: none;
+width: 8px;
+height: 8px;
+border-radius: 50%;
+background-color: #0f0;
+vertical-align: middle;
+margin-bottom: 2px;
+margin-left: 4px;
+"></span>
+<span style="display: none;">Online: <a href="#" onclick="updateViewerCount()"><strong id="viewer-count">...</strong></a> • </a></span>
 <a href="#" onclick="pull()"><span id="poller">Loading...</span></a>
 <span class="dek">
 <span> • <strong id="tiem">Parsing...</strong></span>
 <span> • <span id="daet">Reading...</span></span>
 </span>
 <span> • <a id="upload" href="#" onclick="upload()" style="font-weight: bold;">Upload Image</a></span>
+<span id="userstateo"> • <span id="userstate"></span></span>
 <span class="dek" style="float: right"
 >Channel: <strong id="channelname"></strong
 ></span>
@@ -162,6 +173,8 @@ try { xhr.send(); } catch(e) {}
 }
 });
 const g = (e) => { return document.getElementById(e); };
+const uss = g("userstate");
+const usso = g("userstateo");
 user = user.trim();
 g("channelname").textContent = user;
 const feed = g("feed"),
@@ -445,61 +458,104 @@ enable: true,
 },
 });
 });
+function toTitleCase(str) {
+return str
+.toLowerCase()
+.split(' ')
+.map(word => word.charAt(0).toUpperCase() + word.slice(1))
+.join(' ');
+}
 const WS_URL = 'wss://ws.alimad.co';
 let ws = null;
 let currentChannel = null;
 let listeners = [];
-let stateTimeout = null;
 let lastState = null;
 let lastStateTime = 0;
+let stateTimeout = null;
+let uonline = false;
 const otherUsers = new Map();
 function ssend(obj) {
-if (!ws || ws.readyState !== 1) return;
-ws.send(JSON.stringify(obj));
+  if (!ws || ws.readyState !== 1) return;
+  ws.send(JSON.stringify(obj));
 }
-function parseState(ip, state){
-console.log(ip+" user is "+state);
+function st(g) {
+  uss.textContent = g;
+  usso.style.display = g ? "inline" : "none";
+}
+function setOtherUserStatus(isOnline) {
+  const dot = document.getElementById('otherUserDot');
+  dot.style.display = isOnline ? 'inline-block' : 'none';
+}
+function parseState(ip, state) {
+    console.log(state);
+  if (["idle", "indeterminate"].includes(state)) {
+    st("");
+    return;
+  }
+  if ("online" == state) {
+    uonline = true;
+    setOtherUserStatus(true)
+    return;
+  }
+  if ("active" == state) {
+    st("");
+    return;
+  }
+  if (state === 'outside') { st('In another tab'); return; }
+  if (state == 'offline') { st(''); setOtherUserStatus(false); uonline = false; return; }
+  else st(toTitleCase(state));
 }
 function connect(channel) {
-if (ws && ws.readyState === 1) return;
-currentChannel = channel;
-ws = new WebSocket(WS_URL);
-ws.onopen = () => {ssend({ type: 'connect', channel }); setInterval(() => {online()}, 5000)};
-ws.onmessage = e => {
-let msg;
-try { msg = JSON.parse(e.data); } catch { msg = e.data; }
-if (msg?.from && !w.includes(msg.from) && msg?.data?.state) {
-const ip = msg.from;
-const state = msg.data.state;
-parseState(ip, state);
-if (otherUsers.has(ip)) clearTimeout(otherUsers.get(ip));
-otherUsers.set(ip, setTimeout(() => {
-parseState(ip, 'indeterminate');
-otherUsers.delete(ip);
-}, 5000));
-}
-listeners.forEach(cb => cb(msg));
-};
-ws.onclose = () => {ws = null; connect(user)}
+  st("Connecting...");
+  if (ws && ws.readyState === 1) return;
+  currentChannel = channel;
+  ws = new WebSocket(WS_URL);
+  ws.onopen = () => {
+    ssend({ type: 'connect', channel });
+    st("");
+    setInterval(() => online(), 5000);
+  };
+  ws.onmessage = e => {
+    let msg;
+    try { msg = JSON.parse(e.data); } catch { msg = e.data; }
+    if (msg?.from && !w.includes(msg.from) && msg?.data?.state) {
+      const ip = msg.from;
+      const state = msg.data.state;
+      parseState(ip, state);
+      if (otherUsers.has(ip)) clearTimeout(otherUsers.get(ip));
+      otherUsers.set(ip, setTimeout(() => {
+        parseState(ip, 'indeterminate');
+        otherUsers.delete(ip);
+      }, 5000));
+    }
+    listeners.forEach(cb => cb(msg));
+  };
+  ws.onclose = () => {
+    ws = null;
+    connect(currentChannel);
+    st("Reconnecting...");
+  };
 }
 function disconnect() {
-if (ws) ws.close();
-ws = null;
+  if (ws) ws.close();
+  ws = null;
+  st("");
 }
 function setState(state) {
-if (!ws || ws.readyState !== 1 || !currentChannel) return;
-const now = Date.now();
-if (state === lastState && now - lastStateTime < 2500) return;
-ssend({ type: 'broadcast', channel: currentChannel, data: { state } });
-lastState = state;
-lastStateTime = now;
-clearTimeout(stateTimeout);
-if(state != "online"){
-stateTimeout = setTimeout(() => {
-ssend({ type: 'broadcast', channel: currentChannel, data: { state: 'idle' } });
-lastState = 'idle';
-lastStateTime = Date.now();
-}, 3000);}
+  if (!ws || ws.readyState !== 1 || !currentChannel) return;
+  const now = Date.now();
+  if (state === lastState && now - lastStateTime < 2500) return;
+  ssend({ type: 'broadcast', channel: currentChannel, data: { state } });
+  lastState = state;
+  lastStateTime = now;
+  clearTimeout(stateTimeout);
+  if (state == "typing") {
+    stateTimeout = setTimeout(() => {
+      ssend({ type: 'broadcast', channel: currentChannel, data: { state: 'idle' } });
+      lastState = 'idle';
+      lastStateTime = Date.now();
+    }, 3000);
+  }
 }
 function typing() { setState('typing'); }
 function online() { setState('online'); }
@@ -508,14 +564,11 @@ function outside() { setState('outside'); }
 function idling() { setState('idle'); }
 function active() { setState('active'); }
 function listen(cb) {
-listeners.push(cb);
+  listeners.push(cb);
 }
 document.addEventListener('visibilitychange', () => {
-if (document.visibilityState === 'hidden') {
-outside();
-} else if (document.visibilityState === 'visible') {
-active();
-}
+  if (document.visibilityState === 'hidden') outside();
+  else if (document.visibilityState === 'visible') active();
 });
 function updateVH() {
 document.documentElement.style.setProperty('--vh', window.innerHeight * 0.01 + 'px');
