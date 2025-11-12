@@ -140,6 +140,7 @@ display: none;
 <div id="feed"></div>
 <input type="file" id="imgUpload" style="display:none" accept="image/*">
 </div>
+<script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
 <script>
 const qp = new URLSearchParams(location.search);
 let user = qp.get("channel"),
@@ -150,6 +151,7 @@ user =
 prompt("channel (username)") ||
 "guest" + Math.random().toString(36).slice(2);
 window.addEventListener("beforeunload", () => {
+offline();
 const url = "https://live.alimad.co/leave?channel=" + encodeURIComponent("chat:" + user);
 if (navigator.sendBeacon) {
 navigator.sendBeacon(url);
@@ -376,6 +378,7 @@ fetch("https://api.ipify.org")
 if (!w.includes(data)) w.push(data);
 localStorage.setItem("myip", JSON.stringify(w));
 initiate();
+connect(user);
 });
 });
 const tt = g("txt");
@@ -384,6 +387,7 @@ tt.style.height = "42px";
 tt.style.height = (tt.scrollHeight + 2) + "px";
 }
 tt.addEventListener("input", scaleI);
+tt.addEventListener("input", typing);
 setInterval(scaleI, 500);
 async function upload(fromPaste = false, pasteFile = null) {
 const fileInput = document.getElementById("imgUpload");
@@ -431,9 +435,6 @@ await upload(true, blob);
 }
 }
 });
-</script>
-<script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
-<script>
 window.OneSignalDeferred = window.OneSignalDeferred || [];
 OneSignalDeferred.push(async function(OneSignal) {
 await OneSignal.init({
@@ -443,6 +444,78 @@ notifyButton: {
 enable: true,
 },
 });
+});
+const WS_URL = 'wss://ws.alimad.co';
+let ws = null;
+let currentChannel = null;
+let listeners = [];
+let stateTimeout = null;
+let lastState = null;
+let lastStateTime = 0;
+const otherUsers = new Map();
+function ssend(obj) {
+if (!ws || ws.readyState !== 1) return;
+ws.send(JSON.stringify(obj));
+}
+function parseState(ip, state){
+console.log(ip+" user is "+state);
+}
+function connect(channel) {
+if (ws && ws.readyState === 1) return;
+currentChannel = channel;
+ws = new WebSocket(WS_URL);
+ws.onopen = () => {ssend({ type: 'connect', channel }); setInterval(() => {online()}, 5000)};
+ws.onmessage = e => {
+let msg;
+try { msg = JSON.parse(e.data); } catch { msg = e.data; }
+if (msg?.from && !w.includes(msg.from) && msg?.data?.state) {
+const ip = msg.from;
+const state = msg.data.state;
+parseState(ip, state);
+if (otherUsers.has(ip)) clearTimeout(otherUsers.get(ip));
+otherUsers.set(ip, setTimeout(() => {
+parseState(ip, 'indeterminate');
+otherUsers.delete(ip);
+}, 5000));
+}
+listeners.forEach(cb => cb(msg));
+};
+ws.onclose = () => {ws = null; connect(user)}
+}
+function disconnect() {
+if (ws) ws.close();
+ws = null;
+}
+function setState(state) {
+if (!ws || ws.readyState !== 1 || !currentChannel) return;
+const now = Date.now();
+if (state === lastState && now - lastStateTime < 2500) return;
+ssend({ type: 'broadcast', channel: currentChannel, data: { state } });
+lastState = state;
+lastStateTime = now;
+clearTimeout(stateTimeout);
+if(state != "online"){
+stateTimeout = setTimeout(() => {
+ssend({ type: 'broadcast', channel: currentChannel, data: { state: 'idle' } });
+lastState = 'idle';
+lastStateTime = Date.now();
+}, 3000);}
+}
+function typing() { setState('typing'); }
+function online() { setState('online'); }
+function offline() { setState('offline'); }
+function outside() { setState('outside'); }
+function idling() { setState('idle'); }
+function active() { setState('active'); }
+function listen(cb) {
+listeners.push(cb);
+}
+document.addEventListener('visibilitychange', () => {
+if (document.visibilityState === 'hidden') {
+outside();
+} else if (document.visibilityState === 'visible') {
+active();
+}
 });
 function updateVH() {
 document.documentElement.style.setProperty('--vh', window.innerHeight * 0.01 + 'px');
