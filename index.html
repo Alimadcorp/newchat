@@ -472,50 +472,66 @@ let listeners = [];
 let lastState = null;
 let lastStateTime = 0;
 let stateTimeout = null;
-let stateTimeout2 = null;
+let typingTimeout = null;
+let otherUsers = new Map();
 let uonline = false;
-const otherUsers = new Map();
+let offlineTimeouts = new Map();
+
 function ssend(obj) {
 if (!ws || ws.readyState !== 1) return;
 ws.send(JSON.stringify(obj));
 }
+
 function st(g) {
 uss.textContent = g;
 usso.style.display = g ? "inline" : "none";
 }
+
 function setOtherUserStatus(isOnline) {
 const dot = document.getElementById('otherUserDot');
-dot.style.display = isOnline ? 'inline-block' : 'none';
+dot.style.display = "inline-block";
+dot.style.backgroundColor = isOnline ? 'green' : 'red';
 }
+
 function parseState(ip, state) {
-console.log(state);
 if (["idle", "indeterminate"].includes(state)) {
 st("");
 return;
 }
-if ("online" == state) {
+if (state === 'online') {
 uonline = true;
-setOtherUserStatus(true)
+setOtherUserStatus(true);
 return;
 }
-if ("active" == state) {
+if (state === 'active') {
 st("");
 return;
 }
-if (state === 'outside') { st('In another tab'); return; }
-if (state == 'offline') { st(''); setOtherUserStatus(false); uonline = false; const dot = document.getElementById('otherUserDot'); dot.style.display = 'inline-block'; dot.style.color = "red"; return; }
-else st(toTitleCase(state));
+if (state === 'outside') {
+st('In another tab');
+return;
 }
+if (state === 'offline') {
+st('');
+uonline = false;
+setOtherUserStatus(false);
+return;
+}
+st(toTitleCase(state));
+}
+
 function connect(channel) {
 st("Connecting...");
 if (ws && ws.readyState === 1) return;
 currentChannel = channel;
 ws = new WebSocket(WS_URL);
+
 ws.onopen = () => {
 ssend({ type: 'connect', channel });
 st("");
 setInterval(() => online(), 5000);
 };
+
 ws.onmessage = e => {
 let msg;
 try { msg = JSON.parse(e.data); } catch { msg = e.data; }
@@ -525,30 +541,43 @@ const state = msg.data.state;
 parseState(ip, state);
 if (otherUsers.has(ip)) clearTimeout(otherUsers.get(ip));
 otherUsers.set(ip, setTimeout(() => {
-parseState(ip, 'indeterminate');
-otherUsers.delete(ip);
+ parseState(ip, 'indeterminate');
+ otherUsers.delete(ip);
 }, 5000));
+
+// Offline timer (15s)
+if (offlineTimeouts.has(ip)) clearTimeout(offlineTimeouts.get(ip));
+offlineTimeouts.set(ip, setTimeout(() => {
+ parseState(ip, 'offline');
+ offlineTimeouts.delete(ip);
+}, 15000));
 }
+
 listeners.forEach(cb => cb(msg));
 };
+
 ws.onclose = () => {
 ws = null;
-connect(currentChannel);
 st("Reconnecting...");
+setTimeout(() => connect(currentChannel), 1000);
 };
 }
+
 function disconnect() {
 if (ws) ws.close();
 ws = null;
 st("");
 }
+
 function setState(state) {
 if (!ws || ws.readyState !== 1 || !currentChannel) return;
 const now = Date.now();
 if (state === lastState && now - lastStateTime < 2500) return;
+
 ssend({ type: 'broadcast', channel: currentChannel, data: { state } });
 lastState = state;
 lastStateTime = now;
+
 clearTimeout(stateTimeout);
 if (!["online", "typing"].includes(state)) {
 stateTimeout = setTimeout(() => {
@@ -558,31 +587,30 @@ lastStateTime = Date.now();
 }, 3000);
 }
 }
-function typing() { setState('typing'); 
-clearTimeout(stateTimeout2);
-stateTimeout2 = setTimeout(() => {
-ssend({ type: 'broadcast', channel: currentChannel, data: { state: 'idle' } });
-lastState = 'idle';
-lastStateTime = Date.now();
+
+function typing() {
+setState('typing');
+clearTimeout(typingTimeout);
+typingTimeout = setTimeout(() => {
+setState('idle');
 }, 3000);
 }
-function online() { setState('online');
-clearTimeout(stateTimeout3);
-stateTimeout3 = setTimeout(() => {
-parseState('offline')
-}, 10000);
- }
+
+function online() { setState('online'); }
 function offline() { setState('offline'); }
 function outside() { setState('outside'); }
 function idling() { setState('idle'); }
 function active() { setState('active'); }
+
 function listen(cb) {
 listeners.push(cb);
 }
+
 document.addEventListener('visibilitychange', () => {
 if (document.visibilityState === 'hidden') outside();
 else if (document.visibilityState === 'visible') active();
 });
+
 function updateVH() {
 document.documentElement.style.setProperty('--vh', window.innerHeight * 0.01 + 'px');
 }
