@@ -234,6 +234,29 @@ border 0.25s ease,
 transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
 box-shadow: 0 4px 12px #0003;
 }
+.media-container {
+position: relative;
+margin: 6px 0;
+border-radius: 8px;
+overflow: hidden;
+box-shadow: 0 2px 8px #0002;
+}
+.media-name {
+position: absolute;
+top: 4px;
+right: 6px;
+background: #0007;
+color: #fff;
+font-size: 12px;
+padding: 2px 6px;
+border-radius: 4px;
+backdrop-filter: blur(3px);
+}
+.msgi, .msgv, .msga {
+display: block;
+width: 100%;
+max-width: 400px;
+}
 .msg-reply {
 font-size: 13px;
 color: #888;
@@ -254,6 +277,9 @@ border: #0f03 1px solid;
 background-color: #0f03;
 border-radius: 4px;
 transition: background-color 0.2s;
+}
+.img{
+min-height: 100px;
 }
 .url-wrap { margin-top: 0.4em; }
 .url-link { text-decoration: underline; font-size: 1em; }
@@ -287,7 +313,6 @@ transition: background-color 0.2s;
 <div id="feed"></div>
 <input type="file" id="imgUpload" style="display:none" accept="image/*">
 </div>
-<script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
 <script>
 const qp = new URLSearchParams(location.search);
 let user = qp.get("channel"),
@@ -521,13 +546,27 @@ let isActiveReply = lineText == currentReply && time == crt;
 let formatted = safe(lineText)
 .replace(/&lt;(https?:\/\/\S+)&gt;/gi, (_, url) => {
 const parts = url.split("/").filter(Boolean);
-const filename = parts[parts.length - 1];
+const filename = parts[parts.length - 1].split("?")[0];
+const ext = filename.split(".").pop().toLowerCase();
+let media;
+if (ext === "mp4") {
+media = `<video class="msgv" controls preload="metadata" style="max-width:100%;border-radius:8px;">
+<source src="${url}" type="video/mp4">
+Your browser does not support video playback.
+</video>`;
+} else if (ext === "mp3") {
+media = `<audio class="msga" controls preload="metadata" style="width:100%;">
+<source src="${url}" type="audio/mpeg">
+Your browser does not support audio playback.
+</audio>`;
+} else {
+media = `<img class="msgi" src="${url}" onerror="this.replaceWith(document.createTextNode('${filename}'));">`;
+}
 return `<br>
-<div class="img-container">
-<img class="msgi" src="${url}">
-<div class="img-name">${filename}</div>
-</div><br>
-`;
+<div class="media-container">
+${media}
+<div class="media-name">${filename}</div>
+</div><br>`;
 });
 function formatText(text) {
 return text
@@ -823,16 +862,6 @@ if (!blob) return;
 await upload(true, blob);
 }
 }
-});
-window.OneSignalDeferred = window.OneSignalDeferred || [];
-OneSignalDeferred.push(async function(OneSignal) {
-await OneSignal.init({
-appId: "b885061e-346e-4289-b31f-f082b0704cbb",
-safari_web_id: "web.onesignal.auto.67fef31a-7360-4fd8-9645-1463ac233cef",
-notifyButton: {
-enable: true,
-},
-});
 });
 function toTitleCase(str) {
 return str
