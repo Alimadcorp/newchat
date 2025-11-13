@@ -532,8 +532,6 @@ render(merged[i], mc < logs.filter((l) => l.status != "read").length);
 }
 if (mc < logs.filter((l) => l.status != "read").length && !mee(logs[logs.length - 1].ip && logs[logs.length - 1].status != "read")){
 read();
-if(document.title == "Idle"){
-document.title = "New Message";alert("New message!!!")}
 }
 mc = logs.filter((l) => l.status != "read").length;
 cp = false;
@@ -760,8 +758,11 @@ if(isOnline) dot.classList.add("online")
 else dot.classList.remove("online")
 }
 function parseState(ip, state) {
-if (state == "send") { pull(); st(''); return };
+if (state == "send") { pull(); st(''); 
+if(document.title == "Idle" || document.title == "Typing"){
+document.title = "New Message";alert("New message!!!")} return };
 if (["idle", "indeterminate"].includes(state)) {
+if(document.title == "Typing") document.title = "Idle";
 st("");
 return;
 }
@@ -784,7 +785,7 @@ uonline = false;
 setOtherUserStatus(false);
 return;
 }
-if (state == 'typing') state = 'typing...';
+if (state == 'typing'){ state = 'typing...'; if(document.title == "Idle") document.title = "Typing";}
 st(toTitleCase(state));
 }
 function connect(channel) {
