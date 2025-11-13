@@ -22,6 +22,7 @@ font-family: GM, monospace;
 }
 * {
 scrollbar-width: thin;
+-webkit-tap-highlight-color: transparent;
 scrollbar-color: #0f0 transparent;
 }
 #app {
@@ -43,6 +44,34 @@ border: 1px solid #003300;
 padding: 8px;
 font: inherit;
 border-radius: 0;
+}
+button:disabled{
+color: darkgreen;
+}
+.msg-line {
+position: relative;
+padding-right: 24px;
+}
+.reply-btn {
+opacity: 0;
+position: absolute;
+right: 2px;
+top: 50%;
+transform: translateY(-50%);
+background: none;
+border: none;
+font-size: 14px;
+color: #999;
+cursor: pointer;
+transition: opacity 0.2s, transform 0.2s;
+}
+.msg-line:hover .reply-btn {
+opacity: 1;
+transform: translateY(-50%) scale(1.1);
+}
+.reply-btn:hover {
+color: #0f0;
+transform: translateY(-50%) scale(1.3);
 }
 textarea {
 flex: 1;
@@ -119,6 +148,81 @@ text-decoration: underline;
 display: none;
 }
 }
+#otherUserDot{
+width: 6px;
+height: 6px;
+border-radius: 50%;
+transition: all 0.3s ease-in-out;
+background-color: #444a;
+display: inline-block;
+vertical-align: middle;
+margin-bottom: 2px;
+margin-left: 4px;
+}
+#otherUserDot.online{
+background-color: #0f0;
+transform: scale(1.1);
+animation: ongoline 1s ease-in-out;
+}
+@keyframes ongoline {
+0%{ transform: translate(0, 0) scale(1); background-color: #444a; }
+10%{ transform: scale(0.2); background-color: #444a; }
+30%{ transform: translate(-10px, 0); }
+50%{ transform: scale(10); background-color: #444a; }
+70%{ transform: translate(0, 0) scale(10); background-color: #0f0; }
+80%{ transform: translate(0, 0) scale(8); background-color: #0f0; }
+90%{ transform: scale(5); background-color: #0f0; }
+100%{ transform: translate(0, 0) scale(1.1); background-color: #0f0; }
+}
+.tooltip {
+position: relative;
+display: inline-block;
+cursor: pointer;
+}
+.tooltip::after {
+content: attr(data-tip);
+position: absolute;
+bottom: 125%;
+left: 50%;
+transform: translateX(-10%) translateY(6px);
+background: #1111;
+backdrop-filter: blur(3px);
+border: #333 1px solid;
+color: #fff;
+font-size: 10px;
+padding: 4px 6px;
+border-radius: 6px;
+white-space: nowrap;
+opacity: 0;
+pointer-events: none;
+transition: 
+opacity 0.25s ease,
+color 0.25s ease,
+border 0.25s ease,
+transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+box-shadow: 0 4px 12px #0003;
+}
+.msg-reply {
+font-size: 13px;
+color: #888;
+border-left: 2px solid #0f0;
+padding-left: 6px;
+margin-bottom: 4px;
+font-style: italic;
+}
+.tooltip:hover::after {
+opacity: 1;
+transform: translateX(-10%) translateY(-2px);
+}
+.tooltip.online:hover::after {
+color: #0f0;
+border: #0f03 1px solid;
+}
+.reply-selected {
+background-color: #0f03; /* subtle green highlight */
+border-radius: 4px;
+transition: background-color 0.2s;
+}
 </style>
 <div id="app">
 <div id="bar">
@@ -126,16 +230,7 @@ display: none;
 <button id="send">Send</button>
 </div>
 <div style="color: #0f0; font-size: 12px; opacity: 1">
-<span id="otherUserDot" style="
-display: none;
-width: 8px;
-height: 8px;
-border-radius: 50%;
-background-color: #0f0;
-vertical-align: middle;
-margin-bottom: 2px;
-margin-left: 4px;
-"></span>
+<span id="otherUserDot" class="tooltip" data-tip="Desynchronized"></span>
 <span style="display: none;">Online: <a href="#" onclick="updateViewerCount()"><strong id="viewer-count">...</strong></a> • </a></span>
 <a href="#" onclick="pull()"><span id="poller">Loading...</span></a>
 <span class="dek">
@@ -170,10 +265,11 @@ navigator.sendBeacon(url);
 } else {
 const xhr = new XMLHttpRequest();
 xhr.open("GET", url, false);
-try { xhr.send(); } catch(e) {}
+try { xhr.send(); } catch(e) { console.error(e) }
 }
 });
 const g = (e) => { return document.getElementById(e); };
+let mee = (ip) => { return true ? ("39.63.166.229" != ip) : (w.includes(ip))}
 const uss = g("userstate");
 const usso = g("userstateo");
 user = user.trim();
@@ -181,8 +277,9 @@ g("channelname").textContent = user;
 const feed = g("feed"),
 txt = g("txt"),
 send = g("send");
+let currentReply = "";
 let seen = new Set(),
-polling = 10000;
+polling = 15000;
 let cp = false;
 setInterval(() => {
 const tiem = g("tiem");
@@ -221,7 +318,7 @@ return `${diffMin}m${sec ? `, ${sec}s` : ""} ago`;
 }
 const diffH = Math.floor(diffMin / 60);
 if (diffH < 24) {
-return `${diffH}h ago`;
+return `${diffH}h, ${diffMin % 60}m ago`;
 }
 const diffDays = Math.floor(diffH / 24);
 const pad = (n) => n.toString().padStart(2, "0");
@@ -244,12 +341,17 @@ return `${monthNames[then.getMonth()]} ${pad(then.getDate())} ${pad(then.getHour
 const monthNames = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 return `${monthNames[then.getMonth()]} ${pad(then.getDate())}, ${then.getFullYear()} ${pad(then.getHours())}:${pad(then.getMinutes())}`;
 }
+let currentReplyLine = null;
 function render(it, neww) {
+let replyToText = it?.status;
+if (replyToText?.startsWith("reply:")) {
+replyToText = replyToText.replace("reply:", "");
+} else { replyToText = ""; }
 let body = "", time = "", ip = "", isRead = false, me = false;
 if (it && typeof it === "object") {
 body = it.text ?? JSON.stringify(it);
 ip = it.ip ?? "";
-me = w.includes(ip);
+me = mee(ip);
 time = it.time ?? "";
 isRead = it.status === "read";
 if (isRead && me) return;
@@ -258,32 +360,72 @@ const id = body + time + ip;
 if (seen.has(id)) return;
 seen.add(id);
 const msg = document.createElement("div");
+msg.className = isRead ? "msg read" : "msg " + (me ? "me" : "other");
 if (isRead) {
-msg.className = "msg read";
 msg.textContent = "-- Read " + timeAgo(time) + " --";
 feed.appendChild(msg);
 return;
 }
-msg.className = "msg " + (me ? "me" : "other");
 const meta = document.createElement("span");
 meta.className = "meta";
 meta.dataset.time = time;
 meta.dataset.user = me ? "you" : "";
 meta.dataset.ip = ip;
 msg.appendChild(meta);
-let formatted = safe(body)
-.replace(/&lt;(https?:\/\/\S+)&gt;/gi, (_, url) => `<img class="msgi" src="${url}">`);
-if (formatted === safe(body)) {
-formatted = safe(body).replace(/(https?:\/\/\S+)/gi, url => `<a href="${url}" target="_blank">${url}</a>`);
+if (replyToText) {
+const replyDiv = document.createElement("div");
+replyDiv.className = "msg-reply";
+replyDiv.textContent = replyToText;
+msg.appendChild(replyDiv);
 }
-msg.insertAdjacentHTML("beforeend", "<br>" + emojiify(formatted).replace(/\n/g, "<br>"));
+const lines = body.split("\n");
+lines.forEach(lineText => {
+const line = document.createElement("div");
+line.className = "msg-line";
+let formatted = safe(lineText)
+.replace(/&lt;(https?:\/\/\S+)&gt;/gi, (_, url) => `<img class="msgi" src="${url}">`);
+if (formatted === safe(lineText)) {
+formatted = safe(lineText).replace(/(https?:\/\/\S+)/gi, url => `<a href="${url}" target="_blank">${url}</a>`);
+}
+line.innerHTML = emojiify(formatted);
+const replyBtn = document.createElement("button");
+replyBtn.className = "reply-btn";
+replyBtn.innerHTML = "↩";
+replyBtn.title = "Reply";
+replyBtn.onclick = e => {
+e.stopPropagation();
+startReply(lineText, ip, time);
+setReplyHighlight(line);
+};
+line.appendChild(replyBtn);
+line.addEventListener("click", () => {
+if (!isTouch) return;
+document.querySelectorAll(".reply-btn").forEach(btn => btn.style.opacity = 0);
+replyBtn.style.opacity = 1;
+setReplyHighlight(line);
+});
+msg.appendChild(line);
+});
 feed.appendChild(msg);
 updateOne(meta);
 if (neww) {
-setTimeout(() => {
-feed.scrollTo({ top: feed.scrollHeight, behavior: "smooth" });
-}, 10);
+setTimeout(() => feed.scrollTo({ top: feed.scrollHeight, behavior: "smooth" }), 100);
 }
+}
+function setReplyHighlight(line) {
+if (currentReplyLine) currentReplyLine.classList.remove("reply-selected");
+currentReplyLine = line;
+line.classList.add("reply-selected");
+}
+function clearReplyHighlights() {
+if (currentReplyLine) {
+currentReplyLine.classList.remove("reply-selected");
+currentReplyLine = null;
+}
+}
+function startReply(body, ip, time){
+console.log(body, ip, time);
+currentReply = body;
 }
 function updateOne(el) {
 const u = el.dataset.user || "";
@@ -336,7 +478,7 @@ render(merged[i], mc < logs.filter((l) => l.status != "read").length);
 }
 if (
 mc < logs.filter((l) => l.status != "read").length &&
-!w.includes(
+!mee(
 logs[logs.length - 1].ip && logs[logs.length - 1].status != "read"
 )
 )
@@ -344,7 +486,8 @@ read();
 mc = logs.filter((l) => l.status != "read").length;
 cp = false;
 g("poller").textContent = "Refreshed";
-} catch {
+} catch (e) {
+console.error(e);
 cp = false;
 g("poller").textContent = "Refresh failed";
 }
@@ -367,20 +510,33 @@ localStorage.setItem("chat:" + user + ":lastRead", Date.now().toString());
 }
 async function sendMsg(text) {
 if (!text.trim()) return;
+txt.disabled = true;
+send.disabled = true;
 try {
 await fetch(
-"https://log.alimad.co/api/log?channel=" +
-encodeURIComponent("chat:" + user) +
-"&text=" +
-encodeURIComponent(text)
+"https://log.alimad.co/api/log?" +
+new URLSearchParams({
+channel: "chat:" + user,
+text: text,
+...(currentReply && { status: "reply:" + currentReply })
+})
 );
+statesend();
+currentReply = "";
 txt.value = "";
+txt.disabled = false;
+send.disabled = false;
 pull();
 } catch {}
 }
+let isTouch = false;
+window.addEventListener('touchstart', function onFirstTouch() {
+isTouch = true;
+window.removeEventListener('touchstart', onFirstTouch, false);
+}, false);
 send.onclick = () => sendMsg(txt.value);
 txt.addEventListener("keydown", (e) => {
-if (e.key === "Enter" && !e.shiftKey) {
+if (e.key === "Enter" && !(e.shiftKey || isTouch)) {
 e.preventDefault();
 sendMsg(txt.value);
 }
@@ -389,7 +545,7 @@ function initiate() {
 pull();
 updateViewerCount();
 setInterval(pull, polling);
-setInterval(updateAll, 5000);
+setInterval(updateAll, 1000);
 setInterval(updateViewerCount, 5000);
 }
 let uv = false;
@@ -513,10 +669,12 @@ usso.style.display = g ? "inline" : "none";
 }
 function setOtherUserStatus(isOnline) {
 const dot = document.getElementById('otherUserDot');
-dot.style.display = "inline-block";
-dot.style.backgroundColor = isOnline ? 'green' : 'red';
+dot.dataset.tip = isOnline ? 'Synchronized' : 'Desynchronized';
+if(isOnline) dot.classList.add("online")
+else dot.classList.remove("online")
 }
 function parseState(ip, state) {
+if (state == "send") { pull(); st(''); return };
 if (["idle", "indeterminate"].includes(state)) {
 st("");
 return;
@@ -556,7 +714,7 @@ setInterval(() => online(), 5000);
 ws.onmessage = e => {
 let msg;
 try { msg = JSON.parse(e.data); } catch { msg = e.data; }
-if (msg?.from && !w.includes(msg.from) && msg?.data?.state) {
+if (msg?.from && !mee(msg.from) && msg?.data?.state) {
 const ip = msg.from;
 const state = msg.data.state;
 parseState(ip, state);
@@ -593,7 +751,7 @@ ssend({ type: 'broadcast', channel: currentChannel, data: { state } });
 lastState = state;
 lastStateTime = now;
 clearTimeout(stateTimeout);
-if (!["online", "typing"].includes(state)) {
+if (!["online", "typing", "send"].includes(state)) {
 stateTimeout = setTimeout(() => {
 ssend({ type: 'broadcast', channel: currentChannel, data: { state: 'idle' } });
 lastState = 'idle';
@@ -613,6 +771,7 @@ function offline() { setState('offline'); }
 function outside() { setState('outside'); }
 function idling() { setState('idle'); }
 function active() { setState('active'); }
+function statesend() { setState('send'); }
 function listen(cb) {
 listeners.push(cb);
 }
