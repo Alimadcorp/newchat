@@ -24,6 +24,7 @@ font-family: GM, monospace;
 scrollbar-width: thin;
 -webkit-tap-highlight-color: transparent;
 scrollbar-color: #0f0 transparent;
+user-select: none;
 }
 #app {
 display: flex;
@@ -96,7 +97,7 @@ font-size: 14px;
 padding: 4px 6px;
 margin: 4px 0;
 word-break: break-word;
-max-width: 90%;
+max-width: 100%;
 }
 .me {
 color: #0f0;
@@ -147,6 +148,22 @@ text-decoration: underline;
 .dek {
 display: none;
 }
+}
+.img-container {
+position: relative;
+display: inline-block;
+}
+.img-container .img-name {
+position: absolute;
+bottom: 4px;
+right: 4px;
+background: rgba(0,0,0,0.5);
+backdrop-filter: blur(3px);
+color: white;
+font-size: 12px;
+padding: 1px 3px;
+border-radius: 2px;
+pointer-events: none;
 }
 #otherUserDot{
 width: 6px;
@@ -303,6 +320,7 @@ return text.replace(
 )}">`
 );
 }
+let crt;
 function timeAgo(t) {
 if (!t) return "";
 const now = new Date();
@@ -375,15 +393,32 @@ msg.appendChild(meta);
 if (replyToText) {
 const replyDiv = document.createElement("div");
 replyDiv.className = "msg-reply";
-replyDiv.textContent = replyToText;
+let r = replyToText;
+r = r.replace(/<https?:\/\/\S+>/gi, urlWithBrackets => {
+const url = urlWithBrackets.slice(1, -1);
+const parts = url.split("/").filter(Boolean);
+let filename = parts[parts.length - 1];
+return `<a href="${url}" target="_blank">${filename}</a>`;
+});
+replyDiv.innerHTML = "↪ "+r;
 msg.appendChild(replyDiv);
 }
 const lines = body.split("\n");
 lines.forEach(lineText => {
 const line = document.createElement("div");
 line.className = "msg-line";
+let isActiveReply = lineText == currentReply && time == crt;
 let formatted = safe(lineText)
-.replace(/&lt;(https?:\/\/\S+)&gt;/gi, (_, url) => `<img class="msgi" src="${url}">`);
+.replace(/&lt;(https?:\/\/\S+)&gt;/gi, (_, url) => {
+const parts = url.split("/").filter(Boolean);
+const filename = parts[parts.length - 1];
+return `
+<div class="img-container">
+<img class="msgi" src="${url}">
+<div class="img-name">${filename}</div>
+</div><br>
+`;
+});
 if (formatted === safe(lineText)) {
 formatted = safe(lineText).replace(/(https?:\/\/\S+)/gi, url => `<a href="${url}" target="_blank">${url}</a>`);
 }
@@ -394,16 +429,22 @@ replyBtn.innerHTML = "↩";
 replyBtn.title = "Reply";
 replyBtn.onclick = e => {
 e.stopPropagation();
-startReply(lineText, ip, time);
+startReply(replyToText ? "Reply: "+lineText : lineText, ip, time);
 setReplyHighlight(line);
 };
-line.appendChild(replyBtn);
+if(isActiveReply) setReplyHighlight(line);
+if(lineText.trim().length > 0){
+line.appendChild(replyBtn);}
 line.addEventListener("click", () => {
 if (!isTouch) return;
 document.querySelectorAll(".reply-btn").forEach(btn => btn.style.opacity = 0);
 replyBtn.style.opacity = 1;
-setReplyHighlight(line);
 });
+line.addEventListener("contextmenu", (e)=>{
+e.preventDefault();
+startReply(replyToText ? "Reply: "+lineText : lineText, ip, time);
+setReplyHighlight(line);
+})
 msg.appendChild(line);
 });
 feed.appendChild(msg);
@@ -426,6 +467,7 @@ currentReplyLine = null;
 function startReply(body, ip, time){
 console.log(body, ip, time);
 currentReply = body;
+crt = time;
 }
 function updateOne(el) {
 const u = el.dataset.user || "";
@@ -585,39 +627,72 @@ tt.style.height = (tt.scrollHeight + 2) + "px";
 tt.addEventListener("input", scaleI);
 tt.addEventListener("input", typing);
 setInterval(scaleI, 500);
+let currentProgress = 0;
+let displayedProgress = 0.01;
+let animFrameId = null;
 async function upload(fromPaste = false, pasteFile = null) {
 const fileInput = document.getElementById("imgUpload");
+const uploadBtn = g("upload");
 const up = async () => {
 const file = fileInput.files[0];
 if (!file) return;
-g("upload").textContent = "Uploading...";
+uploadBtn.textContent = "Uploading...";
 const form = new FormData();
 form.append("image", file);
-try {
-const res = await fetch(
-"https://api.imgbb.com/1/upload?key=0035f29ef2ddb2862584cd5114e4a7ee",
-{ method: "POST", body: form }
-);
-const data = await res.json();
+const xhr = new XMLHttpRequest();
+xhr.open("POST", "https://api.imgbb.com/1/upload?key=0035f29ef2ddb2862584cd5114e4a7ee");
+xhr.upload.onprogress = e => {
+if (e.lengthComputable) currentProgress = e.loaded / e.total;
+};
+xhr.onload = () => {
+if (xhr.status === 200) {
+const data = JSON.parse(xhr.responseText);
 if (data.success) {
 const url = data.data.url;
 txt.value += `<${url}>`;
 }
-g("upload").textContent = "Upload Image";
-} catch (e) {
-alert("Upload failed: " + e.message);
-g("upload").textContent = "Upload Failed";
+} else {
+alert("Upload failed: " + xhr.statusText);
 }
+currentProgress = 1;
+setTimeout(() => {
+uploadBtn.textContent = "Upload Image";
+currentProgress = 0;
+displayedProgress = 0;
+if (animFrameId) cancelAnimationFrame(animFrameId);
+animFrameId = null;
+}, 500);
 };
-if (!fromPaste) {
-fileInput.click();
-} else if (pasteFile) {
+xhr.onerror = () => {
+uploadBtn.textContent = "Upload Failed";
+alert("Upload failed");
+currentProgress = 0;
+displayedProgress = 0;
+if (animFrameId) cancelAnimationFrame(animFrameId);
+animFrameId = null;
+};
+xhr.send(form);
+animateProgress();
+};
+if (!fromPaste) fileInput.click();
+else if (pasteFile) {
 const dt = new DataTransfer();
 dt.items.add(pasteFile);
 fileInput.files = dt.files;
 up();
 }
 fileInput.onchange = up;
+function animateProgress() {
+displayedProgress += (currentProgress - displayedProgress) * 0.1;
+const percent = Math.floor(displayedProgress * 100);
+if (currentProgress > 0 || displayedProgress > 0) {
+uploadBtn.textContent = `${percent}% Uploading...`;
+animFrameId = requestAnimationFrame(animateProgress);
+} else {
+if (animFrameId) cancelAnimationFrame(animFrameId);
+animFrameId = null;
+}
+}
 }
 txt.addEventListener("paste", async (e) => {
 const items = e.clipboardData?.items;
