@@ -127,6 +127,8 @@ width:80vw;
 max-width: 400px;
 display:block;
 margin:4px 0;
+border: #252 2px solid;
+border-radius: 2px;
 }
 .msg.read {
 font-size: small;
@@ -528,13 +530,11 @@ seen.clear();
 for(let i = 0; i < merged.length; i++){
 render(merged[i], mc < logs.filter((l) => l.status != "read").length);
 }
-if (
-mc < logs.filter((l) => l.status != "read").length &&
-!mee(
-logs[logs.length - 1].ip && logs[logs.length - 1].status != "read"
-)
-)
+if (mc < logs.filter((l) => l.status != "read").length && !mee(logs[logs.length - 1].ip && logs[logs.length - 1].status != "read")){
 read();
+if(document.title == "Idle"){
+document.title = "New Message";alert("New message!!!")}
+}
 mc = logs.filter((l) => l.status != "read").length;
 cp = false;
 g("poller").textContent = "Refreshed";
@@ -560,6 +560,7 @@ encodeURIComponent("chat:" + user) +
 );
 localStorage.setItem("chat:" + user + ":lastRead", Date.now().toString());
 }
+document.addEventListener("click", ()=>{document.title = "Title"})
 async function sendMsg(text) {
 if (!text.trim()) return;
 txt.disabled = true;
@@ -861,8 +862,8 @@ function listen(cb) {
 listeners.push(cb);
 }
 document.addEventListener('visibilitychange', () => {
-if (document.visibilityState === 'hidden') outside();
-else if (document.visibilityState === 'visible') active();
+if (document.visibilityState === 'hidden') {outside();document.title = "Idle"}
+else if (document.visibilityState === 'visible') {active();document.title = "Title"}
 });
 function updateVH() {
 document.documentElement.style.setProperty('--vh', window.innerHeight * 0.01 + 'px');
