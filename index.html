@@ -118,8 +118,8 @@ button:hover {
 border-color: #0f0;
 }
 img.emoji {
-width: 1em;
-height: 1em;
+width: 1.2em;
+height: 1.2em;
 vertical-align: text-bottom;
 }
 img.msgi {
@@ -155,7 +155,7 @@ display: inline-block;
 }
 .img-container .img-name {
 position: absolute;
-bottom: 4px;
+bottom: 6px;
 right: 4px;
 background: rgba(0,0,0,0.5);
 backdrop-filter: blur(3px);
@@ -175,6 +175,19 @@ display: inline-block;
 vertical-align: middle;
 margin-bottom: 2px;
 margin-left: 4px;
+}
+.emoji-fallback {
+display: inline-block;
+background: #030;
+border: transparent 1px solid;
+color: #1e1;
+padding: 0 2px;
+border-radius: 2px;
+font-size: 0.9em;
+}
+.emoji-fallback:hover{
+border: #030 1px solid;
+background: #010;
 }
 #otherUserDot.online{
 background-color: #0f0;
@@ -236,7 +249,7 @@ color: #0f0;
 border: #0f03 1px solid;
 }
 .reply-selected {
-background-color: #0f03; /* subtle green highlight */
+background-color: #0f03;
 border-radius: 4px;
 transition: background-color 0.2s;
 }
@@ -311,14 +324,12 @@ String(s).replace(
 (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[ch])
 );
 function emojiify(text) {
-return text.replace(
-/:([0-9a-zA-Z-_]+):/g,
-(m, name) =>
-`<img class="emoji" src="https://e.alimad.co/${name.replace(
-/^rofl$/i,
-"loll"
-)}">`
-);
+return text.replace(/:([0-9a-zA-Z-_]+):/g, (m, name) => {
+const fixedName = name.replace(/^rofl$/i, "loll");
+return `<img class="emoji" 
+src="https://e.alimad.co/${fixedName}" 
+onerror="this.outerHTML='<span class=&quot;emoji-fallback&quot;&gt;:${name}:&lt;/span&gt;'">`;
+});
 }
 let crt;
 function timeAgo(t) {
@@ -465,7 +476,6 @@ currentReplyLine = null;
 }
 }
 function startReply(body, ip, time){
-console.log(body, ip, time);
 currentReply = body;
 crt = time;
 }
