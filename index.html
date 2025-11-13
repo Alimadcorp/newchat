@@ -450,7 +450,6 @@ const windowHeight = feed.clientHeight;
 const docHeight = feed.scrollHeight;
 const scrolledFromBottom = docHeight - windowHeight - scrollTop;
 const percent = ((scrolledFromBottom / (docHeight - windowHeight)) * 100).toFixed(1);
-console.log(percent);
 if(percent > 10){
 setState("Reading history "+Math.ceil(percent)+"%");}
 }
@@ -777,9 +776,10 @@ connect(user);
 });
 });
 const tt = g("txt");
-const scaleI = () => {
+const scaleI = (e) => {
 tt.style.height = "42px";
 tt.style.height = (tt.scrollHeight + 2) + "px";
+if(Math.random() > 0.5) sendX(tt.value);
 }
 tt.addEventListener("input", scaleI);
 tt.addEventListener("input", typing);
@@ -961,6 +961,9 @@ parseState(ip, 'offline');
 offlineTimeouts.delete(ip);
 }, 15000));
 }
+if(msg?.from && msg?.data?.text){
+console.log(msg.data.text);
+}
 listeners.forEach(cb => cb(msg));
 };
 ws.onclose = () => {
@@ -1004,6 +1007,7 @@ function outside() { setState('outside'); }
 function idling() { setState('idle'); }
 function active() { setState('active'); }
 function statesend() { setState('send'); }
+function sendX(x) { ssend({ type: 'broadcast', channel: currentChannel, data: { text: x } }); }
 function listen(cb) {
 listeners.push(cb);
 }
