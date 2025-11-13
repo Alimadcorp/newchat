@@ -334,14 +334,14 @@ onerror="this.outerHTML='<span class=&quot;emoji-fallback&quot;&gt;:${name}:&lt;
 });
 }
 function updateScrollPercent() {
-  const scrollTop = feed.scrollTop;
-  const windowHeight = feed.clientHeight;
-  const docHeight = feed.scrollHeight;
-  const scrolledFromBottom = docHeight - windowHeight - scrollTop;
-  const percent = ((scrolledFromBottom / (docHeight - windowHeight)) * 100).toFixed(1);
-  console.log(percent);
-  if(percent > 10){
-  setState("Reading history "+Math.ceil(percent)+"%");}
+const scrollTop = feed.scrollTop;
+const windowHeight = feed.clientHeight;
+const docHeight = feed.scrollHeight;
+const scrolledFromBottom = docHeight - windowHeight - scrollTop;
+const percent = ((scrolledFromBottom / (docHeight - windowHeight)) * 100).toFixed(1);
+console.log(percent);
+if(percent > 10){
+setState("Reading history "+Math.ceil(percent)+"%");}
 }
 setInterval(updateScrollPercent, 5000);
 let crt;
@@ -465,6 +465,11 @@ document.querySelectorAll(".reply-btn").forEach(btn => btn.style.opacity = 0);
 replyBtn.style.opacity = 1;
 });
 line.addEventListener("contextmenu", (e)=>{
+e.preventDefault();
+startReply(replyToText ? "Reply: "+lineText : lineText, ip, time);
+setReplyHighlight(line);
+})
+line.addEventListener("dblclick", (e)=>{
 e.preventDefault();
 startReply(replyToText ? "Reply: "+lineText : lineText, ip, time);
 setReplyHighlight(line);
