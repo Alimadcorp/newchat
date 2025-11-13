@@ -333,6 +333,17 @@ src="https://e.alimad.co/${fixedName}"
 onerror="this.outerHTML='<span class=&quot;emoji-fallback&quot;&gt;:${name}:&lt;/span&gt;'">`;
 });
 }
+function updateScrollPercent() {
+  const scrollTop = feed.scrollTop;
+  const windowHeight = feed.clientHeight;
+  const docHeight = feed.scrollHeight;
+  const scrolledFromBottom = docHeight - windowHeight - scrollTop;
+  const percent = ((scrolledFromBottom / (docHeight - windowHeight)) * 100).toFixed(1);
+  console.log(percent);
+  if(percent > 10){
+  setState("Reading history "+Math.ceil(percent)+"%");}
+}
+setInterval(updateScrollPercent, 5000);
 let crt;
 function timeAgo(t) {
 if (!t) return "";
@@ -425,7 +436,7 @@ let formatted = safe(lineText)
 .replace(/&lt;(https?:\/\/\S+)&gt;/gi, (_, url) => {
 const parts = url.split("/").filter(Boolean);
 const filename = parts[parts.length - 1];
-return `
+return `<br>
 <div class="img-container">
 <img class="msgi" src="${url}">
 <div class="img-name">${filename}</div>
@@ -767,6 +778,13 @@ st("");
 return;
 }
 if (state === 'online') {
+if(!uonline) {
+if(document.title == "Idle"){
+document.title = "ONLINE!";
+alert("Online!");
+setTimeout(()=>{document.title = "Idle"}, 5000)
+}
+}
 uonline = true;
 setOtherUserStatus(true);
 return;
