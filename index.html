@@ -178,7 +178,7 @@ vertical-align: middle;
 margin-bottom: 2px;
 margin-left: 4px;
 }
-.emoji-fallback {
+.emoji-fallback, code {
 display: inline-block;
 background: #030;
 border: transparent 1px solid;
@@ -255,6 +255,15 @@ background-color: #0f03;
 border-radius: 4px;
 transition: background-color 0.2s;
 }
+.url-wrap { margin-top: 0.4em; }
+.url-link { text-decoration: underline; font-size: 1em; }
+.url-meta { margin-top: 0.35em; font-size: 0.9em; color: #d0d0d0; }
+.url-meta-card { display:flex; gap:0.6em; align-items:flex-start; background:rgba(0,0,0,0.05); padding:0.5em; border-radius:0.5em; max-width:48em; }
+.url-meta-img img { width:4.2em; height:4.2em; object-fit:cover; border-radius:0.35em; display:block; }
+.url-meta-body { min-width:0; }
+.url-meta-title { font-weight:600; font-size:0.98em; color:inherit; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.url-meta-desc { margin-top:0.25em; font-size:0.86em; color:inherit; line-height:1.25em; max-height:3.75em; overflow:hidden; text-overflow:ellipsis; }
+.url-meta-loading { font-style:italic; color:inherit; }
 </style>
 <div id="app">
 <div id="bar">
@@ -263,13 +272,13 @@ transition: background-color 0.2s;
 </div>
 <div style="color: #0f0; font-size: 12px; opacity: 1">
 <span id="otherUserDot" class="tooltip" data-tip="Desynchronized"></span>
+<span class="dek">
+<span><strong id="tiem">Parsing...</strong> • </span>
+<span><span id="daet">Reading...</span> • </span>
+</span>
+<span><a id="upload" href="#" onclick="upload()" style="font-weight: bold;">Upload Image</a> • </span>
 <span style="display: none;">Online: <a href="#" onclick="updateViewerCount()"><strong id="viewer-count">...</strong></a> • </a></span>
 <a href="#" onclick="pull()"><span id="poller">Loading...</span></a>
-<span class="dek">
-<span> • <strong id="tiem">Parsing...</strong></span>
-<span> • <span id="daet">Reading...</span></span>
-</span>
-<span> • <a id="upload" href="#" onclick="upload()" style="font-weight: bold;">Upload Image</a></span>
 <span id="userstateo"> • <span id="userstate"></span></span>
 <span class="dek" style="float: right"
 >Channel: <strong id="channelname"></strong
@@ -302,6 +311,8 @@ try { xhr.send(); } catch(e) { console.error(e) }
 });
 const g = (e) => { return document.getElementById(e); };
 let mee = (ip) => { return (w.includes(ip))}
+function escapeHtml(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]); }
+function escapeHtmlAttr(s){ return escapeHtml(s).replace(/'/g, '&#39;'); }
 const uss = g("userstate");
 const usso = g("userstateo");
 user = user.trim();
@@ -316,10 +327,14 @@ let cp = false;
 setInterval(() => {
 const tiem = g("tiem");
 const now = new Date();
-tiem.textContent = now.toLocaleTimeString();
+const h = String(now.getHours()).padStart(2, "0");
+const m = String(now.getMinutes()).padStart(2, "0");
+const s = String(now.getSeconds()).padStart(2, "0");
+const ms = String(now.getMilliseconds()).padStart(3, "0");
+tiem.textContent = `${h}:${m}:${s}.${ms}`;
 const daet = g("daet");
-daet.textContent = now.toLocaleDateString();
-}, 1000);
+daet.textContent = now.toLocaleDateString()
+}, 1);
 const safe = (s) =>
 String(s).replace(
 /[&<>]/g,
@@ -331,6 +346,77 @@ const fixedName = name.replace(/^rofl$/i, "loll");
 return `<img class="emoji" 
 src="https://e.alimad.co/${fixedName}" 
 onerror="this.outerHTML='<span class=&quot;emoji-fallback&quot;&gt;:${name}:&lt;/span&gt;'">`;
+});
+}
+async function fetchMeta(url, placeholderId, seenMap) {
+const cacheKey = "metaCache:" + url;
+const local = localStorage.getItem(cacheKey);
+const cached = local ? JSON.parse(local) : null;
+if (cached) {
+seenMap.set(url, cached);
+const el = document.getElementById(placeholderId);
+if (el && el.getAttribute('data-fetched') !== 'true') {
+renderMeta(placeholderId, cached);
+}
+return;
+}
+if (seenMap.has(url)) {
+renderMeta(placeholderId, seenMap.get(url));
+return;
+}
+try {
+const apiUrl = `https://opengraph.io/api/1.1/site/${encodeURIComponent(url)}?app_id=5929c7db-c53e-43ad-a120-6fdd39959683`;
+const res = await fetch(apiUrl);
+if (!res.ok) throw new Error('OpenGraph fetch failed');
+const data = await res.json();
+const og = data.hybridGraph || {};
+const meta = {
+title: (og.title || og.site_name || new URL(url).host || '').trim(),
+description: (og.description || '').trim(),
+image: og.image || ''
+};
+seenMap.set(url, meta);
+localStorage.setItem(cacheKey, JSON.stringify(meta));
+renderMeta(placeholderId, meta);
+} catch {
+const fallback = { title: (new URL(url)).host, description: '' };
+seenMap.set(url, fallback);
+localStorage.setItem(cacheKey, JSON.stringify(fallback));
+renderMeta(placeholderId, fallback);
+}
+}
+function renderMeta(placeholderId, meta) {
+const el = document.getElementById(placeholderId);
+if (!el) return;
+el.setAttribute('aria-hidden', 'false');
+el.setAttribute('data-fetched', 'true');
+const imgPart = meta.image
+? `<div class="url-meta-img"><img loading="lazy" src="${escapeHtmlAttr(meta.image)}" alt=""></div>`
+: '';
+const descPart = meta.description
+? `<div class="url-meta-desc">${escapeHtml(meta.description)}</div>`
+: '';
+el.innerHTML = `<div class="url-meta-card">
+${imgPart}
+<div class="url-meta-body">
+<div class="url-meta-title">${escapeHtml(meta.title)}</div>
+${descPart}
+</div>
+</div>`;
+}
+function linkifyWithMeta(text) {
+const urlRegex = /(https?:\/\/\S+)/gi;
+const seen = new Map();
+return text.replace(urlRegex, url => {
+const id = 'urlmeta-' + Math.random().toString(36).slice(2, 9);
+const html = `<div class="url-wrap" data-url="${escapeHtmlAttr(url)}">
+<a class="url-link" href="${escapeHtmlAttr(url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(url)}</a>
+<div id="${id}" class="url-meta" data-fetched="false" aria-hidden="true">
+<div class="url-meta-loading">loading metadata…</div>
+</div>
+</div>`;
+fetchMeta(url, id, seen).catch(()=>{}); 
+return html;
 });
 }
 function updateScrollPercent() {
@@ -443,8 +529,15 @@ return `<br>
 </div><br>
 `;
 });
+function formatText(text) {
+return text
+.replace(/\*(.+?)\*/g, "<strong>$1</strong>")
+.replace(/_(.+?)_/g, "<i>$1</i>")
+.replace(/~~(.+?)~~/g, "<s>$1</s>")
+.replace(/`([^`]+)`/g, "<code>$1</code>");
+}
 if (formatted === safe(lineText)) {
-formatted = safe(lineText).replace(/(https?:\/\/\S+)/gi, url => `<a href="${url}" target="_blank">${url}</a>`);
+formatted = formatText(linkifyWithMeta(safe(lineText)));
 }
 line.innerHTML = emojiify(formatted);
 const replyBtn = document.createElement("button");
@@ -511,7 +604,6 @@ function updateAll() {
 document.querySelectorAll(".meta").forEach(updateOne);
 }
 async function pull() {
-if (cp) return;
 cp = true;
 g("poller").textContent = "Refreshing...";
 try {
@@ -593,6 +685,7 @@ currentReply = "";
 txt.value = "";
 txt.disabled = false;
 send.disabled = false;
+txt.select();
 pull();
 } catch {}
 }
@@ -612,8 +705,8 @@ function initiate() {
 pull();
 updateViewerCount();
 setInterval(pull, polling);
-setInterval(updateAll, 1000);
-setInterval(updateViewerCount, 5000);
+setInterval(updateAll, 5000);
+setInterval(updateViewerCount, 50000);
 }
 let uv = false;
 async function updateViewerCount() {
