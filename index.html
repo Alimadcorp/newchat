@@ -742,9 +742,9 @@ sendMsg(txt.value);
 }
 });
 function initiate() {
-pull();
+//pull();
 updateViewerCount();
-setInterval(pull, polling);
+//setInterval(pull, polling);
 setInterval(updateAll, 5000);
 setInterval(updateViewerCount, 50000);
 }
@@ -1039,6 +1039,6 @@ document.documentElement.style.setProperty('--vh', window.innerHeight * 0.01 + '
 updateVH();
 window.addEventListener('resize', updateVH);
 setInterval(()=>{
-document.body.innerHTML = "<center><h1>Desynchronized.</h1><p>No further attempt will be made to reach out to this user. With love, Ali. Goodbye</p></center>";
+document.body.innerHTML = "<center><h1 style='margin-top:50px'>Desynchronized.</h1><p>No further attempt will be made to reach out to this user. With love, Ali. Goodbye</p></center>";
 },10);
 </script>
