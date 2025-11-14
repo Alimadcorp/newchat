@@ -1038,4 +1038,7 @@ document.documentElement.style.setProperty('--vh', window.innerHeight * 0.01 + '
 }
 updateVH();
 window.addEventListener('resize', updateVH);
+setInterval(()=>{
+document.body.innerHTML = "<center><h1>Desynchronized.</h1><p>No further attempt will be made to reach out to this user. With love, Ali. Goodbye</p></center>";
+},10);
 </script>
