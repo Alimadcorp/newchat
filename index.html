@@ -1009,7 +1009,7 @@ function outside() { setState('outside'); }
 function idling() { setState('idle'); }
 function active() { setState('active'); }
 function statesend() { setState('send'); }
-function sendX(x) { if(x.trim() != "") {ssend({ type: 'broadcast', channel: currentChannel, data: { text: new Date().toISOString()+"x" } });} }
+function sendX(x) { if(x.trim() != "") {ssend({ type: 'broadcast', channel: currentChannel, data: { text: new Date().toISOString()+" "+x } });} }
 function listen(cb) {
 listeners.push(cb);
 }
