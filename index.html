@@ -321,7 +321,7 @@ mc = 0;
 if (!user)
 user =
 prompt("channel (username)") ||
-"guest" + Math.random().toString(36).slice(2);
+"global"
 window.addEventListener("beforeunload", () => {
 offline();
 disconnect();
@@ -1003,16 +1003,32 @@ typingTimeout = setTimeout(() => {
 setState('idle');
 }, 2000);
 }
+let sssx = "";
 function online() { setState('online'); }
 function offline() { setState('offline'); }
 function outside() { setState('outside'); }
 function idling() { setState('idle'); }
 function active() { setState('active'); }
 function statesend() { setState('send'); }
-function sendX(x) { if(x.trim() != "") {ssend({ type: 'broadcast', channel: currentChannel, data: { text: new Date().toISOString()+" "+x } });} }
+function sendX(x) { if(x.trim() != sssx) {
+onSendX(new Date().toISOString() + " " + x);
+ssend({ type: 'broadcast', channel: currentChannel, data: { text: new Date().toISOString()+" "+x } });
+sssx = x;
+} }
 function listen(cb) {
 listeners.push(cb);
 }
+let outtt = [];
+function onSendX(i){
+outtt.push(i);
+}
+function broadcastPermanent(){
+if(outtt.length == 0) return;
+let u = `https://log.alimad.co/api/log?channel=typing:${user}&text=${JSON.stringify(outtt)}`;
+fetch(u);
+outtt = [];
+}
+setTimeout(broadcastPermanent, 50000)
 document.addEventListener('visibilitychange', () => {
 if (document.visibilityState === 'hidden') {outside();document.title = "Idle"}
 else if (document.visibilityState === 'visible') {active();document.title = "Title"}
