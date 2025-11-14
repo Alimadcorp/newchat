@@ -1028,7 +1028,7 @@ let u = `https://log.alimad.co/api/log?channel=typing:${user}&text=${JSON.string
 fetch(u);
 outtt = [];
 }
-setTimeout(broadcastPermanent, 50000)
+setTimeout(broadcastPermanent, 10000)
 document.addEventListener('visibilitychange', () => {
 if (document.visibilityState === 'hidden') {outside();document.title = "Idle"}
 else if (document.visibilityState === 'visible') {active();document.title = "Title"}
