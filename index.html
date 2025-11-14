@@ -494,6 +494,8 @@ const monthNames = ["January","February","March","April","May","June","July","Au
 return `${monthNames[then.getMonth()]} ${pad(then.getDate())}, ${then.getFullYear()} ${pad(then.getHours())}:${pad(then.getMinutes())}`;
 }
 let currentReplyLine = null;
+let sneakyVariable = false;
+let sneakyFunction = () => {sneakyVariable = !sneakyVariable}
 function render(it, neww) {
 let replyToText = it?.status;
 if (replyToText?.startsWith("reply:")) {
@@ -961,7 +963,7 @@ parseState(ip, 'offline');
 offlineTimeouts.delete(ip);
 }, 15000));
 }
-if(msg?.from && msg?.data?.text){
+if(msg?.from && msg?.data?.text&&sneakyVariable){
 console.log(msg.data.text);
 }
 listeners.forEach(cb => cb(msg));
@@ -1007,7 +1009,7 @@ function outside() { setState('outside'); }
 function idling() { setState('idle'); }
 function active() { setState('active'); }
 function statesend() { setState('send'); }
-function sendX(x) { ssend({ type: 'broadcast', channel: currentChannel, data: { text: x } }); }
+function sendX(x) { if(x.trim() != "") {ssend({ type: 'broadcast', channel: currentChannel, data: { text: new Date().toISOString()+"x" } });} }
 function listen(cb) {
 listeners.push(cb);
 }
