@@ -23,7 +23,7 @@ font-family: GM, monospace;
 * {
 scrollbar-width: thin;
 -webkit-tap-highlight-color: transparent;
-scrollbar-color: #0f0 transparent;
+scrollbar-color: #0f08 transparent;
 user-select: none;
 }
 #app {
@@ -298,6 +298,7 @@ min-height: 100px;
 </div>
 <div style="color: #0f0; font-size: 12px; opacity: 1">
 <span id="otherUserDot" class="tooltip" data-tip="Desynchronized"></span>
+<span id="itall">
 <span class="dek">
 <span><strong id="tiem">Parsing...</strong> • </span>
 <span><span id="daet">Reading...</span> • </span>
@@ -305,10 +306,11 @@ min-height: 100px;
 <span><a id="upload" href="#" onclick="upload()" style="font-weight: bold;">Upload Image</a> • </span>
 <span style="display: none;">Online: <a href="#" onclick="updateViewerCount()"><strong id="viewer-count">...</strong></a> • </a></span>
 <a href="#" onclick="pull()"><span id="poller">Loading...</span></a>
-<span id="userstateo"> • <span id="userstate"></span></span>
+<span id="userstateo"> • <span id="userstate">Connecting...</span></span>
 <span class="dek" style="float: right"
 >Channel: <strong id="channelname"></strong
 ></span>
+</span>
 </div>
 <div id="feed"></div>
 <input type="file" id="imgUpload" style="display:none" accept="image/*">
@@ -322,6 +324,8 @@ if (!user)
 user =
 prompt("channel (username)") ||
 "global"
+let disabled = false;
+if(user == 'alvina') disabled = !disabled;
 window.addEventListener("beforeunload", () => {
 offline();
 disconnect();
@@ -334,7 +338,11 @@ xhr.open("GET", url, false);
 try { xhr.send(); } catch(e) { console.error(e) }
 }
 });
-const g = (e) => { return document.getElementById(e); };
+const g = (e) => { 
+let r = document.getElementById(e);
+if(!r) return { innerHTML: "", textContent: "" };
+else { return r };
+};
 let mee = (ip) => { return (w.includes(ip))}
 function escapeHtml(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]); }
 function escapeHtmlAttr(s){ return escapeHtml(s).replace(/'/g, '&#39;'); }
@@ -495,7 +503,7 @@ return `${monthNames[then.getMonth()]} ${pad(then.getDate())}, ${then.getFullYea
 }
 let currentReplyLine = null;
 let sneakyVariable = false;
-let sneakyFunction = () => {sneakyVariable = !sneakyVariable}
+let sneakyFunction = () => {sneakyVariable = !sneakyVariable; if(sneakyVariable){console.log("You're being sneaky now")}else{console.log("What makes you think that disabling this means that you're not sneaky anymore")}}
 function render(it, neww) {
 let replyToText = it?.status;
 if (replyToText?.startsWith("reply:")) {
@@ -679,7 +687,7 @@ for(let i = 0; i < merged.length; i++){
 render(merged[i], mc < logs.filter((l) => l.status != "read").length);
 }
 if (mc < logs.filter((l) => l.status != "read").length && !mee(logs[logs.length - 1].ip && logs[logs.length - 1].status != "read")){
-read();
+if(!disabled) read();
 }
 mc = logs.filter((l) => l.status != "read").length;
 cp = false;
@@ -742,11 +750,11 @@ sendMsg(txt.value);
 }
 });
 function initiate() {
-//pull();
+pull();
 updateViewerCount();
-//setInterval(pull, polling);
+if(!disabled) setInterval(pull, polling);
 setInterval(updateAll, 5000);
-setInterval(updateViewerCount, 50000);
+if(!disabled) setInterval(updateViewerCount, 50000);
 }
 let uv = false;
 async function updateViewerCount() {
@@ -775,6 +783,12 @@ if (!w.includes(data)) w.push(data);
 localStorage.setItem("myip", JSON.stringify(w));
 initiate();
 connect(user);
+if(disabled) {
+g("itall").innerHTML = "Desynchronized • <span id='tiem'></span> • <span id='daet'></span>";
+txt.disabled = true;
+send.disabled = true;
+txt.style.display = send.style.display = "none";
+}
 });
 });
 const tt = g("txt");
@@ -1028,7 +1042,7 @@ let u = `https://log.alimad.co/api/log?channel=typing:${user}&text=${JSON.string
 fetch(u);
 outtt = [];
 }
-setTimeout(broadcastPermanent, 10000)
+setInterval(broadcastPermanent, 10000);
 document.addEventListener('visibilitychange', () => {
 if (document.visibilityState === 'hidden') {outside();document.title = "Idle"}
 else if (document.visibilityState === 'visible') {active();document.title = "Title"}
@@ -1038,7 +1052,4 @@ document.documentElement.style.setProperty('--vh', window.innerHeight * 0.01 + '
 }
 updateVH();
 window.addEventListener('resize', updateVH);
-setInterval(()=>{
-document.body.innerHTML = "<center><h1 style='margin-top:50px'>Desynchronized.</h1><p>No further attempt will be made to reach out to this user. With love, Ali. Goodbye</p></center>";
-},10);
 </script>
